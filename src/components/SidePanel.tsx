@@ -53,6 +53,8 @@ const SidePanelContent: React.FC = () => {
     resetSearchConfig,
     devtoolsError,
     isLoadingStorage,
+    isLoadingHistorical,
+    historicalLoadResult,
   } = useNetworkCalls();
 
   const [selectedCall, setSelectedCall] = useState<NetworkCall | null>(null);
@@ -243,6 +245,55 @@ const SidePanelContent: React.FC = () => {
 
         {/* Right Content Area - 2/3 width */}
         <div className="main-content">
+          {/* Historical data loading notification */}
+          {isLoadingHistorical && (
+            <div 
+              style={{
+                background: "#e3f2fd",
+                border: "1px solid #2196f3",
+                borderRadius: "4px",
+                padding: "8px 12px",
+                margin: "8px",
+                fontSize: "12px",
+                color: "#1976d2",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              <div 
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  border: "2px solid #e3f2fd",
+                  borderTop: "2px solid #2196f3",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite"
+                }}
+              />
+              Loading existing network traffic...
+            </div>
+          )}
+          
+          {/* Historical data load result notification */}
+          {historicalLoadResult && !isLoadingHistorical && historicalLoadResult.calls.length > 0 && (
+            <div 
+              style={{
+                background: "#e8f5e8",
+                border: "1px solid #4caf50",
+                borderRadius: "4px",
+                padding: "8px 12px",
+                margin: "8px",
+                fontSize: "12px",
+                color: "#2e7d32",
+                opacity: 0.8
+              }}
+            >
+              ✓ Loaded {historicalLoadResult.calls.length} existing network requests 
+              ({historicalLoadResult.loadTime.toFixed(0)}ms)
+            </div>
+          )}
+          
           {!selectedCall ? (
             // Show full network list when no call is selected
             <Suspense fallback={<MinimalSpinner />}>

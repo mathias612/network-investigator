@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { NetworkCall, NetworkFilter, SearchConfig } from "../types";
 import { logger } from "../utils/logger";
+import { loadHistoricalNetworkData, HistoricalLoadResult } from "../utils/historicalNetworkLoader";
 
 const STORAGE_KEYS = {
   FILTERS: "browser-investigator-filters",
@@ -66,6 +67,8 @@ const loadFromStorageSync = <T>(key: string, defaultValue: T): T => {
 export const useNetworkCalls = () => {
   const [networkCalls, setNetworkCalls] = useState<NetworkCall[]>([]);
   const [isLoadingStorage, setIsLoadingStorage] = useState(true);
+  const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
+  const [historicalLoadResult, setHistoricalLoadResult] = useState<HistoricalLoadResult | null>(null);
 
   // Initialize with localStorage data synchronously for faster startup
   const [filters, setFilters] = useState<NetworkFilter[]>(
@@ -124,6 +127,45 @@ export const useNetworkCalls = () => {
       chrome?.devtools,
     );
   }, []);
+
+  // Load historical network data when the hook is first initialized
+  useEffect(() => {
+    const loadHistoricalData = async () => {
+      if (isLoadingHistorical) return; // Prevent multiple loads
+      
+      setIsLoadingHistorical(true);
+      logger.log('[useNetworkCalls] Loading historical network data...');
+      
+      try {
+        const result = await loadHistoricalNetworkData();
+        setHistoricalLoadResult(result);
+        
+        if (result.calls.length > 0) {
+          logger.log(`[useNetworkCalls] Successfully loaded ${result.calls.length} historical network calls`);
+          // Add historical calls to the beginning of the array (older requests first)
+          setNetworkCalls(prevCalls => [...result.calls, ...prevCalls]);
+        } else {
+          logger.log('[useNetworkCalls] No historical network data available');
+        }
+        
+        if (result.errors.length > 0) {
+          logger.warn('[useNetworkCalls] Historical data loading warnings:', result.errors);
+        }
+      } catch (error) {
+        logger.error('[useNetworkCalls] Error loading historical data:', error);
+      } finally {
+        setIsLoadingHistorical(false);
+      }
+    };
+
+    // Only load historical data once when the component mounts
+    // and storage loading is complete
+    if (!isLoadingStorage && !isLoadingHistorical && !historicalLoadResult) {
+      // Small delay to ensure DevTools API is ready
+      const timeoutId = setTimeout(loadHistoricalData, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isLoadingStorage, isLoadingHistorical, historicalLoadResult]);
 
   // Capture network calls using the DevTools API
   useEffect(() => {
@@ -411,5 +453,7 @@ export const useNetworkCalls = () => {
     resetSearchConfig,
     devtoolsError,
     isLoadingStorage,
+    isLoadingHistorical,
+    historicalLoadResult,
   };
 };

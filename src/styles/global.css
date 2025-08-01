@@ -1,5 +1,11 @@
 /* Global styles for Network Investigator */
 
+/* Animation for loading spinners */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 :root {
   /* Light theme variables */
   --bg-primary: #fff;
