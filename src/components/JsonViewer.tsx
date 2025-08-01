@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import { logger } from "../utils/logger";
+import { searchJsonStructure, JsonSearchResult } from "../utils/jsonSearch";
 
 interface JsonViewerProps {
   data: any;
@@ -358,7 +359,9 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
                       paddingLeft: depth > 0 ? "15px" : "0"
                     }}
                   >
-                    <span style={{ color: "var(--accent-red)" }}>"{key}"</span>
+                    <span style={{ color: "var(--accent-red)" }}>
+                      "{renderTextWithHighlights(key, `${path}.${key}.key`)}"
+                    </span>
                     <span style={{ color: "var(--text-secondary)" }}>: </span>
                     {renderValue(value[key], `${path}.${key}`, depth + 1)}
                     {index < keys.length - 1 && (

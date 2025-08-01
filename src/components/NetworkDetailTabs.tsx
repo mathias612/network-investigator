@@ -3,6 +3,7 @@ import { NetworkCall } from "../types";
 import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import JsonViewer from "./JsonViewer";
 import { logger } from "../utils/logger";
+import { enhancedJsonSearch } from "../utils/jsonSearch";
 
 interface NetworkDetailTabsProps {
   selectedCall: NetworkCall;
@@ -50,20 +51,13 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
       responseSearchQuery.trim() &&
       selectedCall.responseBody
     ) {
-      const results: Array<{ position: number; length: number; text: string }> =
-        [];
-      const searchRegex = new RegExp(
-        responseSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        "gi",
+      // Use enhanced JSON search for better results with structured data
+      const results = enhancedJsonSearch(
+        selectedCall.responseBody,
+        responseSearchQuery,
+        false // case insensitive by default
       );
-      let match;
-      while ((match = searchRegex.exec(selectedCall.responseBody)) !== null) {
-        results.push({
-          position: match.index,
-          length: match[0].length,
-          text: match[0],
-        });
-      }
+      
       setSearchResults(results);
       setCurrentSearchIndex(0);
 
@@ -84,20 +78,13 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
       payloadSearchQuery.trim() &&
       selectedCall.requestBody
     ) {
-      const results: Array<{ position: number; length: number; text: string }> =
-        [];
-      const searchRegex = new RegExp(
-        payloadSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        "gi",
+      // Use enhanced JSON search for better results with structured data
+      const results = enhancedJsonSearch(
+        selectedCall.requestBody,
+        payloadSearchQuery,
+        false // case insensitive by default
       );
-      let match;
-      while ((match = searchRegex.exec(selectedCall.requestBody)) !== null) {
-        results.push({
-          position: match.index,
-          length: match[0].length,
-          text: match[0],
-        });
-      }
+      
       setPayloadSearchResults(results);
       setCurrentPayloadSearchIndex(0);
 
