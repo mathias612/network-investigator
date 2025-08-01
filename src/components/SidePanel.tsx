@@ -60,10 +60,22 @@ const SidePanelContent: React.FC = () => {
   const [selectedCall, setSelectedCall] = useState<NetworkCall | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showHistoricalNotification, setShowHistoricalNotification] = useState(true);
 
   const handleCallClick = useCallback((call: NetworkCall) => {
     setSelectedCall((prev) => (prev?.id === call.id ? null : call));
   }, []);
+
+  // Auto-hide historical notification after 2 seconds when loading is complete
+  useEffect(() => {
+    if (historicalLoadResult && !isLoadingHistorical && historicalLoadResult.calls.length > 0 && showHistoricalNotification) {
+      const timeoutId = setTimeout(() => {
+        setShowHistoricalNotification(false);
+      }, 2000); // Hide after 2 seconds
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [historicalLoadResult, isLoadingHistorical, showHistoricalNotification]);
 
   const refreshCurrentPage = useCallback(async () => {
     try {
@@ -276,7 +288,7 @@ const SidePanelContent: React.FC = () => {
           )}
           
           {/* Historical data load result notification */}
-          {historicalLoadResult && !isLoadingHistorical && historicalLoadResult.calls.length > 0 && (
+          {historicalLoadResult && !isLoadingHistorical && historicalLoadResult.calls.length > 0 && showHistoricalNotification && (
             <div 
               style={{
                 background: "#e8f5e8",
@@ -286,11 +298,33 @@ const SidePanelContent: React.FC = () => {
                 margin: "8px",
                 fontSize: "12px",
                 color: "#2e7d32",
-                opacity: 0.8
+                opacity: 0.8,
+                transition: "opacity 0.3s ease-out",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between"
               }}
             >
-              ✓ Loaded {historicalLoadResult.calls.length} existing network requests 
-              ({historicalLoadResult.loadTime.toFixed(0)}ms)
+              <span>
+                ✓ Loaded {historicalLoadResult.calls.length} existing network requests 
+                ({historicalLoadResult.loadTime.toFixed(0)}ms)
+              </span>
+              <button
+                onClick={() => setShowHistoricalNotification(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#2e7d32",
+                  cursor: "pointer",
+                  padding: "0 4px",
+                  fontSize: "12px",
+                  marginLeft: "8px",
+                  opacity: 0.7
+                }}
+                title="Dismiss notification"
+              >
+                ×
+              </button>
             </div>
           )}
           
