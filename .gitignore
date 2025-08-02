@@ -48,3 +48,30 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Chrome Extension specific
+*.crx
+*.pem
+*.zip
+
+# Build artifacts and temporary files
+convert-icons.html
+CREATE_ICONS.md
+CHROME_WEB_STORE_SUBMISSION.md
+
+# Chrome Web Store submission files
+network-investigator-icons.zip
+*.crx
+*.pem
+
+# Development and testing
+.eslintcache
+.stylelintcache
+
+# TypeScript
+*.tsbuildinfo
+
+# Chrome extension development
+*.crx
+*.pem
+extension.zip

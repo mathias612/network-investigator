@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Network Investigator",
-  "version": "0.1.0",
-  "description": "Enhanced network call inspection for developers and non-developers.",
-  "short_name": "Network Investigator",
+  "version": "1.0.0",
+  "description": "Advanced network traffic analysis tool for developers. Inspect HTTP requests with enhanced search and filtering capabilities.",
+  "short_name": "NetInvestigator",
+  "author": "Mathias",
+  "homepage_url": "https://github.com/mathias612/network-investigator",
   "permissions": [
     "declarativeNetRequest",
     "webRequest",
@@ -25,8 +27,18 @@
   "side_panel": {
     "default_path": "sidePanel.html"
   },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_title": "Network Investigator"
+    "default_title": "Network Investigator",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"

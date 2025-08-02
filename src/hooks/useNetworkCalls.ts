@@ -216,20 +216,25 @@ export const useNetworkCalls = () => {
             : undefined,
       };
 
-      // Get response content asynchronously
+      // Add call immediately without response body
+      setNetworkCalls((prev) => [...prev, { ...call }]);
+
+      // Get response content asynchronously and update the call
       if (typeof request.getContent === "function") {
         request.getContent((content: string, encoding: string) => {
-          call.responseBody = content;
-          setNetworkCalls((prev) => [...prev, { ...call }]);
+          setNetworkCalls((prev) =>
+            prev.map((existingCall) =>
+              existingCall.id === call.id
+                ? { ...existingCall, responseBody: content }
+                : existingCall
+            )
+          );
           // eslint-disable-next-line no-console
           logger.log(
             "[Browser Investigator] Response body captured for:",
             call.url,
           );
         });
-      } else {
-        // Add call without response body if getContent not available
-        setNetworkCalls((prev) => [...prev, { ...call }]);
       }
     };
     // @ts-ignore
@@ -354,32 +359,51 @@ export const useNetworkCalls = () => {
 
     // Apply search filter with optimized text building
     if (normalizedQuery) {
+      logger.log("[Browser Investigator] Applying search filter:", normalizedQuery);
       result = result.filter((call) => {
-        if (call.url.toLowerCase().includes(normalizedQuery)) return true;
+        // Check URL
+        if (call.url.toLowerCase().includes(normalizedQuery)) {
+          logger.log("[Browser Investigator] Match found in URL:", call.url);
+          return true;
+        }
 
+        // Check errors
         if (
           searchConfig.searchInErrors &&
           call.error?.toLowerCase().includes(normalizedQuery)
-        )
+        ) {
+          logger.log("[Browser Investigator] Match found in error:", call.error);
           return true;
+        }
 
+        // Check headers
         if (searchConfig.searchInHeaders) {
           const headersText = JSON.stringify(call.requestHeaders).toLowerCase();
-          if (headersText.includes(normalizedQuery)) return true;
+          if (headersText.includes(normalizedQuery)) {
+            logger.log("[Browser Investigator] Match found in headers for:", call.url);
+            return true;
+          }
         }
 
+        // Check payload
         if (searchConfig.searchInPayload && call.requestBody) {
-          if (call.requestBody.toLowerCase().includes(normalizedQuery))
+          if (call.requestBody.toLowerCase().includes(normalizedQuery)) {
+            logger.log("[Browser Investigator] Match found in payload for:", call.url);
             return true;
+          }
         }
 
+        // Check response body
         if (searchConfig.searchInResponse && call.responseBody) {
-          if (call.responseBody.toLowerCase().includes(normalizedQuery))
+          if (call.responseBody.toLowerCase().includes(normalizedQuery)) {
+            logger.log("[Browser Investigator] Match found in response for:", call.url);
             return true;
+          }
         }
 
         return false;
       });
+      logger.log("[Browser Investigator] Search results count:", result.length);
     }
 
     return result;

@@ -193,9 +193,11 @@ const SidePanelContent: React.FC = () => {
                   type="text"
                   placeholder="Search network calls..."
                   value={searchConfig.query}
-                  onChange={(e) =>
-                    setSearchConfig({ ...searchConfig, query: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const newQuery = e.target.value;
+                    console.log("[Browser Investigator] Search query changed:", newQuery);
+                    setSearchConfig({ ...searchConfig, query: newQuery });
+                  }}
                   className="search-input"
                 />
                 <div className="search-options">
