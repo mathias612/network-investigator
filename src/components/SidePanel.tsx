@@ -336,6 +336,7 @@ const SidePanelContent: React.FC = () => {
               <NetworkCallComponent
                 calls={filteredCalls}
                 onCallClick={handleCallClick}
+                selectedCallId={null}
               />
             </Suspense>
           ) : (
@@ -346,6 +347,7 @@ const SidePanelContent: React.FC = () => {
                   <NetworkCallComponent
                     calls={filteredCalls}
                     onCallClick={handleCallClick}
+                    selectedCallId={selectedCall.id}
                   />
                 </Suspense>
               </div>

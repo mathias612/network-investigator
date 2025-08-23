@@ -289,38 +289,53 @@ export const useNetworkCalls = () => {
   const filteredCalls = useMemo(() => {
     let result = networkCalls;
 
-    // Apply include filters (at least one must match if any exist)
+    // Apply include filters (ALL must match if any exist)
     if (includeFilters.length > 0) {
+      logger.log("[Browser Investigator] Applying include filters:", includeFilters.length, "active filters");
       result = result.filter((call) => {
-        return includeFilters.some((filter) => {
+        const filterResults = includeFilters.map((filter) => {
           let matches = true;
+          let filterMatchDetails = {};
 
           if (filter.method && filter.method !== "") {
-            matches = matches && call.method === filter.method;
+            const methodMatch = call.method === filter.method;
+            matches = matches && methodMatch;
+            filterMatchDetails = { ...filterMatchDetails, method: { required: filter.method, actual: call.method, match: methodMatch } };
           }
 
           if (filter.urlPattern && filter.urlPattern !== "") {
-            matches =
-              matches &&
-              call.url.toLowerCase().includes(filter.urlPattern.toLowerCase());
+            const urlMatch = call.url.toLowerCase().includes(filter.urlPattern.toLowerCase());
+            matches = matches && urlMatch;
+            filterMatchDetails = { ...filterMatchDetails, url: { required: filter.urlPattern, actual: call.url, match: urlMatch } };
           }
 
           if (filter.includeErrors) {
-            matches = matches && (!!call.error || call.status >= 400);
+            const errorMatch = !!call.error || call.status >= 400;
+            matches = matches && errorMatch;
+            filterMatchDetails = { ...filterMatchDetails, errors: { required: true, actual: { hasError: !!call.error, status: call.status }, match: errorMatch } };
           }
 
           if (
             filter.responseCodeFilter &&
             filter.responseCodeFilter.length > 0
           ) {
-            matches =
-              matches &&
-              matchesResponseCode(call.status, filter.responseCodeFilter);
+            const responseCodeMatch = matchesResponseCode(call.status, filter.responseCodeFilter);
+            matches = matches && responseCodeMatch;
+            filterMatchDetails = { ...filterMatchDetails, responseCode: { required: filter.responseCodeFilter, actual: call.status, match: responseCodeMatch } };
           }
 
-          return matches;
+          return { filter: filter.name, matches, details: filterMatchDetails };
         });
+
+        const allFiltersMatch = filterResults.every(r => r.matches);
+        
+        if (!allFiltersMatch) {
+          logger.log(`[Browser Investigator] Call ${call.url} (${call.status}) did not match all filters:`, filterResults);
+        }
+
+        return allFiltersMatch;
       });
+      logger.log(`[Browser Investigator] After include filters: ${result.length} calls remaining out of ${networkCalls.length} total`);
     }
 
     // Apply exclude filters (none must match)

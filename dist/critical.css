@@ -138,19 +138,38 @@ button:hover {
   padding: 12px 16px;
   border-bottom: 1px solid #e0e0e0;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-left: 3px solid transparent;
+  position: relative;
 }
 
 .network-call-item:hover {
   background-color: #f8f9fa;
+  border-color: #3498db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .network-call-item.selected {
-  background-color: #e3f2fd;
-  border-left: 3px solid #2196f3;
+  background-color: #e3f2fd !important;
+  border-color: #2196f3 !important;
+  border-left: 3px solid #2196f3 !important;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3) !important;
+}
+
+.network-call-item.selected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent #2196f3 transparent transparent;
+  border-radius: 0 6px 0 0;
 }
 
 .method-badge {

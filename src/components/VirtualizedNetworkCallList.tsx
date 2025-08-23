@@ -12,6 +12,7 @@ import { logger } from "../utils/logger";
 interface VirtualizedNetworkCallListProps {
   calls: NetworkCall[];
   onCallClick?: (call: NetworkCall) => void;
+  selectedCallId?: string | null;
 }
 
 const ITEM_HEIGHT = 120; // Approximate height of each network call item
@@ -20,6 +21,7 @@ const BUFFER_SIZE = 5; // Number of items to render outside visible area
 const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
   calls,
   onCallClick,
+  selectedCallId,
 }) => {
   const [containerHeight, setContainerHeight] = useState(400);
   const [scrollTop, setScrollTop] = useState(0);
@@ -269,7 +271,7 @@ const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
               return (
                 <div
                   key={call.id}
-                  className="network-call-item"
+                  className={`network-call-item ${selectedCallId === call.id ? 'selected' : ''}`}
                   onClick={() => onCallClick?.(call)}
                   style={{
                     height: ITEM_HEIGHT,

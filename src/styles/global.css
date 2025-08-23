@@ -365,12 +365,34 @@ body {
   border-radius: 6px;
   padding: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
 }
 
 .network-call-item:hover {
   border-color: var(--accent-blue);
   box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+.network-call-item.selected {
+  background-color: var(--bg-accent);
+  border-color: var(--accent-blue);
+  border-left: 3px solid var(--accent-blue);
+  box-shadow: 0 2px 8px var(--shadow-medium);
+  position: relative;
+}
+
+.network-call-item.selected::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent var(--accent-blue) transparent transparent;
+  border-radius: 0 6px 0 0;
 }
 
 .call-header {
@@ -1124,6 +1146,52 @@ body {
   transition: background 0.2s;
   border: 1px solid #ffeaa7;
 }
+
+/* Custom scrollbar styling for dropdowns */
+.dropdown-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dropdown-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.dropdown-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Firefox scrollbar styling */
+.dropdown-list {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1c1;
+}
+
+/* Dropdown scroll indicator */
+.dropdown-list::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(45deg, transparent 30%, #c1c1c1 30%, #c1c1c1 70%, transparent 70%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Hover effects for dropdown items */
+.dropdown-list > div:hover {
+  background-color: #f8f9fa !important;
+  transition: background-color 0.15s ease;
+}
+
+
 
 .tab-content .uuid-highlight:hover {
   background: #ffeaa7;

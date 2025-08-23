@@ -6,11 +6,13 @@ import { logger } from "../utils/logger";
 interface NetworkCallListProps {
   calls: NetworkCall[];
   onCallClick?: (call: NetworkCall) => void;
+  selectedCallId?: string | null;
 }
 
 const NetworkCallList: React.FC<NetworkCallListProps> = ({
   calls,
   onCallClick,
+  selectedCallId,
 }) => {
   const getMethodColor = (method: string) => {
     switch (method.toUpperCase()) {
@@ -239,7 +241,7 @@ const NetworkCallList: React.FC<NetworkCallListProps> = ({
         calls.map((call) => (
           <div
             key={call.id}
-            className="network-call-item"
+            className={`network-call-item ${selectedCallId === call.id ? 'selected' : ''}`}
             onClick={() => onCallClick?.(call)}
           >
             {/* First row: Method, Status, Duration, Time, Copy cURL */}

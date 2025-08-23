@@ -16,6 +16,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   placeholder = "Select options...",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<'below' | 'above'>('below');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,6 +31,24 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const toggleDropdown = () => {
+    if (!isOpen) {
+      // Calculate if dropdown should appear above or below
+      if (dropdownRef.current) {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownHeight = Math.min(200, options.length * 20); // Approximate height
+        
+        if (rect.bottom + dropdownHeight > viewportHeight && rect.top > dropdownHeight) {
+          setDropdownPosition('above');
+        } else {
+          setDropdownPosition('below');
+        }
+      }
+    }
+    setIsOpen(!isOpen);
+  };
 
   const toggleOption = (option: string) => {
     if (selectedValues.includes(option)) {
@@ -46,11 +65,14 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
         ? selectedValues[0]
         : `${selectedValues.length} selected`;
 
+  // Show total count when dropdown is open and has many options
+  const showTotalCount = isOpen && options.length > 8;
+
   return (
     <div className="multi-select-dropdown" ref={dropdownRef}>
       <div
         className="dropdown-header"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleDropdown}
         style={{
           padding: "4px 6px",
           border: "1px solid #ddd",
@@ -72,20 +94,41 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           className="dropdown-list"
           style={{
             position: "absolute",
-            top: "100%",
+            top: dropdownPosition === 'below' ? "100%" : "auto",
+            bottom: dropdownPosition === 'above' ? "100%" : "auto",
             left: 0,
             right: 0,
             background: "white",
-            border: "1px solid #ddd",
-            borderTop: "none",
-            borderRadius: "0 0 3px 3px",
+            border: dropdownPosition === 'below' ? "1px solid #ddd" : "1px solid #ddd",
+            borderTop: dropdownPosition === 'below' ? "none" : "1px solid #ddd",
+            borderBottom: dropdownPosition === 'above' ? "none" : "1px solid #ddd",
+            borderRadius: dropdownPosition === 'below' ? "0 0 3px 3px" : "3px 3px 0 0",
             zIndex: 1000,
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: "0px",
+            maxHeight: "200px",
+            overflowY: "auto",
+            overflowX: "hidden",
           }}
         >
+          {showTotalCount && (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                padding: "4px 8px",
+                background: "#f8f9fa",
+                borderBottom: "1px solid #e0e0e0",
+                fontSize: "9px",
+                color: "#666",
+                textAlign: "center",
+                fontWeight: "500",
+              }}
+            >
+              {options.length} total options
+            </div>
+          )}
           {options.map((option) => (
             <div
               key={option}
@@ -358,28 +401,30 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   return (
     <div className="filter-panel">
       <div className="filter-header">
-        <h3>Filters</h3>
-        <button
-          className="add-filter-btn"
-          style={{
-            background: "green",
-            color: "white",
-            padding: "8px",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onClick={() => {
-            logger.log(
-              "[Network Investigator] Add Filter button clicked, showAddForm:",
-              showAddForm,
-            );
-            // Close any edit form if open
-            setEditingFilter(null);
-            setShowAddForm(!showAddForm);
-          }}
-        >
-          {showAddForm ? "Cancel" : "Add Filter"}
-        </button>
+        <h3>Filters{filters.filter(f => f.isActive).length > 0 && " (must match ALL active filters)"}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            className="add-filter-btn"
+            style={{
+              background: "green",
+              color: "white",
+              padding: "8px",
+              border: "none",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              logger.log(
+                "[Network Investigator] Add Filter button clicked, showAddForm:",
+                showAddForm,
+              );
+              // Close any edit form if open
+              setEditingFilter(null);
+              setShowAddForm(!showAddForm);
+            }}
+          >
+            {showAddForm ? "Cancel" : "Add Filter"}
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
