@@ -7,15 +7,9 @@
   "author": "Mathias",
   "homepage_url": "https://github.com/mathias612/network-investigator",
   "permissions": [
-    "declarativeNetRequest",
-    "webRequest",
-    "storage",
-    "scripting",
-    "sidePanel",
     "tabs",
     "activeTab",
-    "clipboardWrite",
-    "tabCapture"
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
