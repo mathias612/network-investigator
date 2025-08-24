@@ -1,0 +1,22 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Network nodes -->
+  <circle cx="3" cy="3" r="1.5" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <circle cx="13" cy="3" r="1.5" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <circle cx="8" cy="8" r="1.5" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
+  <circle cx="3" cy="13" r="1.5" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  <circle cx="13" cy="13" r="1.5" fill="#3498db" stroke="#2980b9" stroke-width="0.5"/>
+  
+  <!-- Network connections -->
+  <line x1="4.2" y1="3.8" x2="6.8" y2="7.2" stroke="#34495e" stroke-width="1" opacity="0.7"/>
+  <line x1="11.8" y1="3.8" x2="9.2" y2="7.2" stroke="#34495e" stroke-width="1" opacity="0.7"/>
+  <line x1="6.8" y1="8.8" x2="4.2" y2="12.2" stroke="#34495e" stroke-width="1" opacity="0.7"/>
+  <line x1="9.2" y1="8.8" x2="11.8" y2="12.2" stroke="#34495e" stroke-width="1" opacity="0.7"/>
+  <line x1="4.5" y1="3" x2="11.5" y2="3" stroke="#34495e" stroke-width="0.8" opacity="0.5"/>
+  <line x1="4.5" y1="13" x2="11.5" y2="13" stroke="#34495e" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Data flow indicators -->
+  <circle cx="6" cy="5.5" r="0.8" fill="#f39c12" opacity="0.8"/>
+  <circle cx="10" cy="5.5" r="0.8" fill="#f39c12" opacity="0.8"/>
+  <circle cx="6" cy="10.5" r="0.8" fill="#f39c12" opacity="0.8"/>
+  <circle cx="10" cy="10.5" r="0.8" fill="#f39c12" opacity="0.8"/>
+</svg>
