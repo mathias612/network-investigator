@@ -18,7 +18,8 @@ export interface NetworkCall {
 export interface NetworkFilter {
   id: string;
   name: string;
-  method?: string;
+  method?: string; // Legacy single method support
+  methods?: string[]; // New multiple methods support
   urlPattern?: string;
   includeHeaders?: boolean;
   includePayload?: boolean;

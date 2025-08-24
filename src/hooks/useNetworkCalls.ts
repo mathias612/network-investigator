@@ -297,10 +297,15 @@ export const useNetworkCalls = () => {
           let matches = true;
           let filterMatchDetails = {};
 
+          // Handle both single method (legacy) and multiple methods (new)
           if (filter.method && filter.method !== "") {
             const methodMatch = call.method === filter.method;
             matches = matches && methodMatch;
             filterMatchDetails = { ...filterMatchDetails, method: { required: filter.method, actual: call.method, match: methodMatch } };
+          } else if (filter.methods && filter.methods.length > 0) {
+            const methodMatch = filter.methods.includes(call.method);
+            matches = matches && methodMatch;
+            filterMatchDetails = { ...filterMatchDetails, methods: { required: filter.methods, actual: call.method, match: methodMatch } };
           }
 
           if (filter.urlPattern && filter.urlPattern !== "") {
@@ -344,8 +349,11 @@ export const useNetworkCalls = () => {
         return !excludeFilters.some((filter) => {
           let matches = true;
 
+          // Handle both single method (legacy) and multiple methods (new)
           if (filter.method && filter.method !== "") {
             matches = matches && call.method === filter.method;
+          } else if (filter.methods && filter.methods.length > 0) {
+            matches = matches && filter.methods.includes(call.method);
           }
 
           if (filter.urlPattern && filter.urlPattern !== "") {

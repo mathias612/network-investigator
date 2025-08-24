@@ -18,6 +18,7 @@ This tool helps engineers and security analysts investigate web application beha
 - **Real-time Capture**: Automatically captures all HTTP/HTTPS requests using Chrome DevTools APIs
 - **Comprehensive Data**: Captures headers, payloads, responses, timing information, and error states
 - **Persistent Storage**: Maintains filter configurations and search settings across sessions
+- **General Information Display**: Shows key request details (URL, method, status, etc.) in an organized General section
 
 ### 🎯 Advanced Filtering System
 - **Multi-criteria Filtering**: Filter by HTTP method, URL patterns, headers, payloads, responses, and errors
@@ -27,15 +28,25 @@ This tool helps engineers and security analysts investigate web application beha
 
 ### 🔎 Intelligent Search
 - **Multi-target Search**: Search across headers, request payloads, response bodies, and error messages
+- **General Section Search**: Search functionality includes the General section information (URL, method, status, etc.)
 - **Case-insensitive Matching**: Flexible text matching across all captured data
 - **Configurable Scope**: Enable/disable search in specific data categories
 - **Real-time Results**: Search results update as you type with debouncing
+- **Search Navigation**: Navigate through search results with up/down navigation buttons
 
 ### 🔗 UUID Detection & Management
 - **Automatic Detection**: Identifies UUIDs in URLs and request data
 - **One-click Copy**: Click any detected UUID to copy to clipboard
 - **Visual Highlighting**: UUIDs are visually distinguished in the interface
 - **Validation**: Proper UUID format validation and handling
+
+### 📋 Headers Tab Analysis
+- **General Section**: Displays key request information including URL, method, status code, and status indicators
+- **Status Visualization**: Color-coded status indicators (green for success, orange for redirect, red for errors)
+- **Comprehensive Headers**: View both request and response headers in organized tables
+- **UUID Integration**: UUIDs in the General section are clickable and copyable
+- **Enhanced Search**: Search functionality covers all content including General section data
+- **Search Navigation**: Navigate through search results with intuitive up/down controls
 
 ### 📤 Export & Integration
 - **cURL Export**: Convert any request to a cURL command for testing
@@ -152,9 +163,9 @@ src/
 │   ├── ErrorBoundary.tsx       # React error handling
 │   ├── FilterPanel.tsx         # Filter management UI
 │   ├── JsonViewer.tsx          # JSON response viewer
-│   ├── NetworkCallList.tsx     # Network traffic list
-│   ├── NetworkDetailTabs.tsx   # Detailed call view
-│   ├── SafeNetworkDetailTabs.tsx # Error-safe detail view
+│   ├── NetworkCallList.tsx     # Network traffic list with UUID highlighting
+│   ├── NetworkDetailTabs.tsx   # Detailed call view with General section and enhanced search
+│   ├── SafeNetworkDetailTabs.tsx # Error-safe detail view with General section
 │   ├── SidePanel.tsx           # Main application component
 │   ├── SimpleNetworkDetails.tsx # Simplified detail view
 │   └── ThemeToggle.tsx         # Dark/light theme toggle
@@ -317,4 +328,4 @@ npm run start
 
 The Browser Investigator is currently **functional and ready for production use** with the core features implemented. See `PROGRESS.md` for detailed development status and `INSTALLATION.md` for setup instructions.
 
-**Last Updated**: July 2025 
+**Last Updated**: January 2025 

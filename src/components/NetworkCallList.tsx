@@ -188,7 +188,11 @@ const NetworkCallList: React.FC<NetworkCallListProps> = ({
     const uuidMatches = detectUUIDs(url);
 
     if (uuidMatches.length === 0) {
-      return <span>{url}</span>;
+      return (
+        <span title={url} className="truncated-url">
+          {url}
+        </span>
+      );
     }
 
     let lastIndex = 0;
@@ -227,7 +231,11 @@ const NetworkCallList: React.FC<NetworkCallListProps> = ({
       parts.push(<span key="text-end">{url.substring(lastIndex)}</span>);
     }
 
-    return <>{parts}</>;
+    return (
+      <span title={url} className="truncated-url">
+        {parts}
+      </span>
+    );
   };
 
   return (

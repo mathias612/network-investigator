@@ -221,6 +221,40 @@ const generateCurl = (call: NetworkCall): string => {
 };
 ```
 
+### 6. Headers Tab System
+
+**Purpose**: Comprehensive display and analysis of request/response headers with enhanced search capabilities
+
+**General Section Architecture**:
+```typescript
+// General section displays key request information
+const generalSectionData = [
+  { label: "Request URL", value: selectedCall.url, renderFunction: renderUUIDs },
+  { label: "Request Method", value: selectedCall.method },
+  { label: "Status Code", value: `${selectedCall.status} ${selectedCall.statusText}` },
+  { label: "Remote Address", value: "N/A" },
+  { label: "Referrer Policy", value: "N/A" }
+];
+```
+
+**Enhanced Search Implementation**:
+```typescript
+// Search covers General section, request headers, and response headers
+const allHeadersData = `${generalData} ${requestHeadersData} ${responseHeadersData}`;
+
+const results = enhancedJsonSearch(
+  allHeadersData,
+  headersSearchQuery,
+  false // case insensitive
+);
+```
+
+**Search Navigation System**:
+- Up/down navigation through search results
+- Result highlighting and scrolling
+- Search result counter display
+- Sticky search header for persistent access
+
 ## Data Models
 
 ### NetworkCall Interface

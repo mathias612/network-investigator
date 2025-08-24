@@ -38,10 +38,18 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
     Array<{ position: number; length: number; text: string }>
   >([]);
 
+  // Headers search state
+  const [headersSearchQuery, setHeadersSearchQuery] = useState(searchQuery);
+  const [currentHeadersSearchIndex, setCurrentHeadersSearchIndex] = useState(0);
+  const [headersSearchResults, setHeadersSearchResults] = useState<
+    Array<{ position: number; length: number; text: string }>
+  >([]);
+
   // Update search queries when searchQuery prop changes
   React.useEffect(() => {
     setResponseSearchQuery(searchQuery);
     setPayloadSearchQuery(searchQuery);
+    setHeadersSearchQuery(searchQuery); // Also update headers search query
   }, [searchQuery]);
 
   // Update search results when search query changes
@@ -97,6 +105,49 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
       setCurrentPayloadSearchIndex(0);
     }
   }, [payloadSearchQuery, selectedCall.requestBody]);
+
+  // Update headers search results when search query changes
+  React.useEffect(() => {
+    if (
+      headersSearchQuery &&
+      headersSearchQuery.trim()
+    ) {
+      // Combine General section data, request headers, and response headers into a single string for search
+      const generalData = [
+        selectedCall.url,
+        selectedCall.method,
+        selectedCall.status.toString(),
+        selectedCall.statusText
+      ].join(" ");
+      
+      const requestHeadersData = Object.entries(selectedCall.requestHeaders)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(" ");
+      
+      const responseHeadersData = Object.entries(selectedCall.responseHeaders)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(" ");
+      
+      const allHeadersData = `${generalData} ${requestHeadersData} ${responseHeadersData}`;
+      
+      const results = enhancedJsonSearch(
+        allHeadersData,
+        headersSearchQuery,
+        false // case insensitive by default
+      );
+      
+      setHeadersSearchResults(results);
+      setCurrentHeadersSearchIndex(0);
+
+      // Scroll to first result if there are results
+      if (results.length > 0) {
+        scrollToHeadersResult(0);
+      }
+    } else {
+      setHeadersSearchResults([]);
+      setCurrentHeadersSearchIndex(0);
+    }
+  }, [headersSearchQuery, selectedCall]);
 
   const scrollToResult = (index: number) => {
     // Use setTimeout to ensure the DOM has been updated with the new highlighting
@@ -164,6 +215,42 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
         payloadSearchResults.length;
       setCurrentPayloadSearchIndex(newIndex);
       scrollToPayloadResult(newIndex);
+    }
+  };
+
+  // Headers search navigation functions
+  const scrollToHeadersResult = (index: number) => {
+    // Use setTimeout to ensure the DOM has been updated with the new highlighting
+    setTimeout(() => {
+      const resultElement = document.querySelector(
+        `[data-headers-search-result-index="${index}"]`,
+      ) as HTMLElement;
+      if (resultElement) {
+        resultElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+      }
+    }, 150);
+  };
+
+  const navigateToNextHeadersResult = () => {
+    if (headersSearchResults.length > 1) {
+      const newIndex =
+        (currentHeadersSearchIndex + 1) % headersSearchResults.length;
+      setCurrentHeadersSearchIndex(newIndex);
+      scrollToHeadersResult(newIndex);
+    }
+  };
+
+  const navigateToPrevHeadersResult = () => {
+    if (headersSearchResults.length > 1) {
+      const newIndex =
+        (currentHeadersSearchIndex - 1 + headersSearchResults.length) %
+        headersSearchResults.length;
+      setCurrentHeadersSearchIndex(newIndex);
+      scrollToHeadersResult(newIndex);
     }
   };
 
@@ -485,6 +572,100 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
       case "headers":
         return (
           <div className="tab-content">
+            <div
+              className="response-header"
+              style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
+                backgroundColor: "var(--bg-primary)",
+                borderBottom: "1px solid var(--border-color)",
+                padding: "12px",
+                marginBottom: "16px",
+              }}
+            >
+              <h4 style={{ margin: "0 0 8px 0" }}>Headers</h4>
+              <div className="response-search">
+                <input
+                  type="text"
+                  placeholder="Search in headers..."
+                  value={headersSearchQuery}
+                  onChange={(e) => setHeadersSearchQuery(e.target.value)}
+                  className="response-search-input"
+                />
+                {headersSearchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <span className="search-result-count">
+                      {currentHeadersSearchIndex + 1} of{" "}
+                      {headersSearchResults.length}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigateToPrevHeadersResult();
+                      }}
+                      disabled={headersSearchResults.length <= 1}
+                      className="search-nav-button"
+                      title="Previous result"
+                      type="button"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigateToNextHeadersResult();
+                      }}
+                      disabled={headersSearchResults.length <= 1}
+                      className="search-nav-button"
+                      title="Next result"
+                      type="button"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+                          <div className="headers-section">
+                <h4>General</h4>
+                <div className="headers-table">
+                  <div className="header-row">
+                    <span className="header-name">Request URL:</span>
+                    <span className="header-value">{renderUUIDs(selectedCall.url)}</span>
+                  </div>
+                  <div className="header-row">
+                    <span className="header-name">Request Method:</span>
+                    <span className="header-value">{selectedCall.method}</span>
+                  </div>
+                  <div className="header-row">
+                    <span className="header-name">Status Code:</span>
+                    <span className="header-value">
+                      <span className="status-indicator" style={{ 
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: selectedCall.status >= 200 && selectedCall.status < 300 ? '#4caf50' : 
+                                     selectedCall.status >= 300 && selectedCall.status < 400 ? '#ff9800' : 
+                                     selectedCall.status >= 400 ? '#f44336' : '#9e9e9e',
+                        marginRight: '8px'
+                      }}></span>
+                      {selectedCall.status} {selectedCall.statusText}
+                    </span>
+                  </div>
+                  <div className="header-row">
+                    <span className="header-name">Remote Address:</span>
+                    <span className="header-value">N/A</span>
+                  </div>
+                  <div className="header-row">
+                    <span className="header-name">Referrer Policy:</span>
+                    <span className="header-value">N/A</span>
+                  </div>
+                </div>
+              </div>
             <div className="headers-section">
               <h4>Request Headers</h4>
               <div className="headers-table">

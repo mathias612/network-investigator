@@ -593,6 +593,43 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
         case "headers":
           return (
             <div className="tab-content">
+                              <div className="headers-section">
+                  <h4>General</h4>
+                  <div className="headers-table">
+                    <div className="header-row">
+                      <span className="header-name">Request URL:</span>
+                      <span className="header-value">{renderWithUUIDs(selectedCall.url)}</span>
+                    </div>
+                    <div className="header-row">
+                      <span className="header-name">Request Method:</span>
+                      <span className="header-value">{selectedCall.method}</span>
+                    </div>
+                    <div className="header-row">
+                      <span className="header-name">Status Code:</span>
+                      <span className="header-value">
+                        <span className="status-indicator" style={{ 
+                          display: 'inline-block',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: selectedCall.status >= 200 && selectedCall.status < 300 ? '#4caf50' : 
+                                       selectedCall.status >= 300 && selectedCall.status < 400 ? '#ff9800' : 
+                                       selectedCall.status >= 400 ? '#f44336' : '#9e9e9e',
+                          marginRight: '8px'
+                        }}></span>
+                        {selectedCall.status} {selectedCall.statusText}
+                      </span>
+                    </div>
+                    <div className="header-row">
+                      <span className="header-name">Remote Address:</span>
+                      <span className="header-value">N/A</span>
+                    </div>
+                    <div className="header-row">
+                      <span className="header-name">Referrer Policy:</span>
+                      <span className="header-value">N/A</span>
+                    </div>
+                  </div>
+                </div>
               <div className="headers-section">
                 <div
                   style={{

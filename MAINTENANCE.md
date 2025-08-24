@@ -709,3 +709,46 @@ npm version patch
 
 **Emergency Contact**: Check repository issues for urgent problems  
 **Documentation Issues**: Submit PRs for documentation improvements
+
+#### Adding New Export Formats
+1. Create utility functions in `src/utils/`
+2. Add export buttons to detail view components
+3. Implement clipboard integration
+4. Test with various data types and sizes
+
+#### Extending Headers Tab Functionality
+1. **General Section Updates**: Modify the General section data structure in `NetworkDetailTabs.tsx` and `SafeNetworkDetailTabs.tsx`
+2. **Search Enhancement**: Update search logic in the headers tab to include new General section fields
+3. **UUID Integration**: Ensure new fields that may contain UUIDs use the `renderUUIDs()` function
+4. **Status Indicators**: Update status code visualization logic for new status types
+
+**Key Files for Headers Tab Maintenance**:
+- `src/components/NetworkDetailTabs.tsx` - Main Headers tab implementation
+- `src/components/SafeNetworkDetailTabs.tsx` - Safe version with error handling
+- `src/styles/global.css` - Styling for General section and search controls
+
+#### Performance Issues
+1. Monitor memory usage with large numbers of calls
+2. Implement call limit or auto-cleanup
+3. Consider pagination for large datasets
+4. Profile React re-renders with React DevTools
+
+#### Headers Tab Issues
+1. **General Section Not Displaying**: Check if `selectedCall` object has required properties
+2. **UUIDs Not Highlighted**: Verify `renderUUIDs()` function is being called correctly
+3. **Search Not Working**: Check search state management and query updates
+4. **Status Indicators Not Showing**: Verify status code logic and CSS styling
+5. **Search Navigation Broken**: Check search result state and navigation functions
+
+**Common Headers Tab Debugging**:
+```typescript
+// Check if General section data is available
+console.log('Selected Call:', selectedCall);
+console.log('URL:', selectedCall.url);
+console.log('Method:', selectedCall.method);
+console.log('Status:', selectedCall.status);
+
+// Verify search functionality
+console.log('Headers Search Query:', headersSearchQuery);
+console.log('Headers Search Results:', headersSearchResults);
+```

@@ -33,6 +33,13 @@
 - [x] UUID validation and formatting utilities
 - [x] Visual highlighting of UUIDs in URLs
 
+### Phase 6: Headers Tab Enhancement ✅
+- [x] General section in Headers tab with key request information
+- [x] Status code visualization with color-coded indicators
+- [x] Enhanced search functionality covering General section data
+- [x] Search navigation controls for headers tab
+- [x] UUID integration in General section (clickable and copyable)
+
 ## 🔄 In Progress
 
 ### Phase 6: Shipwell API Integration (Partially Complete)
@@ -68,12 +75,17 @@ The Browser Investigator extension is now **functional and ready for basic testi
 - ✅ Copy as cURL and JSON
 - ✅ Modern, responsive UI
 - ✅ Real-time updates
+- ✅ General section in Headers tab with key request information
+- ✅ Enhanced search in Headers tab with navigation controls
+- ✅ UUID integration in General section (clickable and copyable)
 
 ### How to Test:
 1. Build the extension: `npm run build`
 2. Load it in Chrome/Edge as an unpacked extension
 3. Open DevTools and look for "Network Investigator" tab
 4. Navigate to any website to see network calls captured
+5. Click on a network call to view details in the Headers tab
+6. Test the General section and search functionality
 
 ## 📁 Project Structure
 ```
@@ -97,4 +109,4 @@ src/
 5. **Add comprehensive error handling**
 6. **Create user documentation and onboarding**
 
-The foundation is solid and the core functionality is working! 🎉 
+The foundation is solid and the core functionality is working! 🎉

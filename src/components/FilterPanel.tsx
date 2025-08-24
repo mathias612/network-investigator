@@ -210,7 +210,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   });
   const [editFilter, setEditFilter] = useState({
     name: "",
-    method: "",
+    method: "", // Legacy single method support
+    methods: [] as string[], // New multiple methods support
     urlPattern: "",
     includeHeaders: false,
     includePayload: false,
@@ -230,43 +231,22 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       logger.log(
         "[Browser Investigator] Filter name valid, calling onAddFilter",
       );
-      // Create separate filters for each selected method
-      if (newFilter.methods.length > 0) {
-        newFilter.methods.forEach((method) => {
-          onAddFilter({
-            name: `${newFilter.name} (${method})`,
-            method: method,
-            urlPattern: newFilter.urlPattern,
-            includeHeaders: newFilter.includeHeaders,
-            includePayload: newFilter.includePayload,
-            includeResponse: newFilter.includeResponse,
-            includeErrors: newFilter.includeErrors,
-            responseCodeFilter:
-              newFilter.responseCodeFilter.length > 0
-                ? newFilter.responseCodeFilter
-                : undefined,
-            isActive: true,
-            isExclude: newFilter.isExclude,
-          });
-        });
-      } else {
-        // No method selected, create a general filter
-        onAddFilter({
-          name: newFilter.name,
-          method: undefined,
-          urlPattern: newFilter.urlPattern,
-          includeHeaders: newFilter.includeHeaders,
-          includePayload: newFilter.includePayload,
-          includeResponse: newFilter.includeResponse,
-          includeErrors: newFilter.includeErrors,
-          responseCodeFilter:
-            newFilter.responseCodeFilter.length > 0
-              ? newFilter.responseCodeFilter
-              : undefined,
-          isActive: true,
-          isExclude: newFilter.isExclude,
-        });
-      }
+      // Create a single filter with multiple methods
+      onAddFilter({
+        name: newFilter.name,
+        methods: newFilter.methods.length > 0 ? newFilter.methods : undefined,
+        urlPattern: newFilter.urlPattern,
+        includeHeaders: newFilter.includeHeaders,
+        includePayload: newFilter.includePayload,
+        includeResponse: newFilter.includeResponse,
+        includeErrors: newFilter.includeErrors,
+        responseCodeFilter:
+          newFilter.responseCodeFilter.length > 0
+            ? newFilter.responseCodeFilter
+            : undefined,
+        isActive: true,
+        isExclude: newFilter.isExclude,
+      });
 
       setNewFilter({
         name: "",
@@ -309,7 +289,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     setEditingFilter(filter.id);
     setEditFilter({
       name: filter.name,
-      method: filter.method || "",
+      method: filter.method || "", // Legacy single method
+      methods: filter.methods || (filter.method ? [filter.method] : []), // Convert single method to array or use existing array
       urlPattern: filter.urlPattern || "",
       includeHeaders: filter.includeHeaders || false,
       includePayload: filter.includePayload || false,
@@ -325,7 +306,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     if (editingFilter && editFilter.name.trim()) {
       onUpdateFilter(editingFilter, {
         name: editFilter.name,
-        method: editFilter.method || undefined,
+        methods: editFilter.methods.length > 0 ? editFilter.methods : undefined,
+        method: undefined, // Clear legacy single method
         urlPattern: editFilter.urlPattern || undefined,
         includeHeaders: editFilter.includeHeaders,
         includePayload: editFilter.includePayload,
@@ -342,6 +324,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       setEditFilter({
         name: "",
         method: "",
+        methods: [],
         urlPattern: "",
         includeHeaders: false,
         includePayload: false,
@@ -359,6 +342,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     setEditFilter({
       name: "",
       method: "",
+      methods: [],
       urlPattern: "",
       includeHeaders: false,
       includePayload: false,
@@ -629,20 +613,29 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                   }
                   style={{ marginBottom: "6px" }}
                 />
-                <select
-                  value={editFilter.method}
-                  onChange={(e) =>
-                    setEditFilter({ ...editFilter, method: e.target.value })
-                  }
-                  style={{ marginBottom: "6px" }}
+                <div
+                  className="method-selection"
+                  style={{ position: "relative", marginBottom: "6px" }}
                 >
-                  <option value="">All methods</option>
-                  {httpMethods.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
+                  <label
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                      marginBottom: "4px",
+                      display: "block",
+                    }}
+                  >
+                    HTTP Methods:
+                  </label>
+                  <MultiSelectDropdown
+                    options={httpMethods}
+                    selectedValues={editFilter.methods}
+                    onChange={(selectedMethods) =>
+                      setEditFilter({ ...editFilter, methods: selectedMethods })
+                    }
+                    placeholder="Select methods..."
+                  />
+                </div>
                 <input
                   type="text"
                   placeholder="URL pattern"
@@ -839,8 +832,12 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                       </span>
                     )}
                   </span>
-                  {filter.method && (
-                    <span className="filter-method">{filter.method}</span>
+                  {(filter.method || (filter.methods && filter.methods.length > 0)) && (
+                    <span className="filter-method">
+                      {filter.methods && filter.methods.length > 0 
+                        ? filter.methods.join(", ") 
+                        : filter.method}
+                    </span>
                   )}
                   {filter.urlPattern && (
                     <span className="filter-url">{filter.urlPattern}</span>

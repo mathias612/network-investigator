@@ -15,7 +15,7 @@ interface VirtualizedNetworkCallListProps {
   selectedCallId?: string | null;
 }
 
-const ITEM_HEIGHT = 120; // Approximate height of each network call item
+const ITEM_HEIGHT = 80; // Reduced height since URLs no longer wrap to multiple lines
 const BUFFER_SIZE = 5; // Number of items to render outside visible area
 
 const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
@@ -197,7 +197,11 @@ const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
     const uuidMatches = detectUUIDs(url);
 
     if (uuidMatches.length === 0) {
-      return <span>{url}</span>;
+      return (
+        <span title={url} className="truncated-url">
+          {url}
+        </span>
+      );
     }
 
     let lastIndex = 0;
@@ -233,7 +237,11 @@ const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
       parts.push(<span key="text-end">{url.substring(lastIndex)}</span>);
     }
 
-    return <>{parts}</>;
+    return (
+      <span title={url} className="truncated-url">
+        {parts}
+      </span>
+    );
   }, []);
 
   const totalHeight = calls.length * ITEM_HEIGHT;
