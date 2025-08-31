@@ -77,29 +77,7 @@ const SidePanelContent: React.FC = () => {
     }
   }, [historicalLoadResult, isLoadingHistorical, showHistoricalNotification]);
 
-  const refreshCurrentPage = useCallback(async () => {
-    try {
-      // @ts-ignore
-      if (chrome.tabs) {
-        // @ts-ignore
-        const tabs = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-        if (tabs[0]) {
-          // @ts-ignore
-          await chrome.tabs.reload(tabs[0].id);
-        }
-      }
-    } catch (error) {
-      console.error("[Browser Investigator] Error refreshing page:", error);
-    }
-  }, []);
-
-  const memoizedTakeScreenshot = useCallback(async () => {
-    const { takeScreenshotLazy } = await importLazyUtils();
-    return takeScreenshotLazy();
-  }, []);
+  // Removed refresh and screenshot functionality to comply with Chrome Web Store requirements
 
   // Use virtual scrolling for large lists (>50 items)
   const shouldUseVirtualScrolling = filteredCalls.length > 50;
@@ -115,21 +93,7 @@ const SidePanelContent: React.FC = () => {
           <Suspense fallback={<MinimalSpinner />}>
             <LazyThemeToggle />
           </Suspense>
-          <button
-            className="clear-calls-btn"
-            onClick={memoizedTakeScreenshot}
-            style={{ background: "#3498db" }}
-            title="Take screenshot of current page"
-          >
-            📸 Screenshot
-          </button>
-          <button
-            className="clear-calls-btn"
-            onClick={refreshCurrentPage}
-            style={{ background: "#27ae60" }}
-          >
-            Refresh Page
-          </button>
+          {/* Removed screenshot and refresh buttons to comply with Chrome Web Store requirements */}
           <button className="clear-calls-btn" onClick={clearNetworkCalls}>
             Clear Calls
           </button>
