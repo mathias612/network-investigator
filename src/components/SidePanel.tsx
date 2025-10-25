@@ -6,6 +6,7 @@ console.log("[Browser Investigator] SidePanel script loading...");
 import React, { useState, useCallback, Suspense, lazy, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useNetworkCalls } from "../hooks/useNetworkCalls";
+import { CopyFormatProvider } from "../contexts/CopyFormatContext";
 // Lazy load ALL non-critical components
 const LazyNetworkCallList = lazy(() => import("./NetworkCallList"));
 const LazyVirtualizedNetworkCallList = lazy(
@@ -59,12 +60,35 @@ const SidePanelContent: React.FC = () => {
 
   const [selectedCall, setSelectedCall] = useState<NetworkCall | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [filterBarCollapsed, setFilterBarCollapsed] = useState(false);
   const [showHistoricalNotification, setShowHistoricalNotification] = useState(true);
+  const [splitViewMode, setSplitViewMode] = useState<'full' | 'minimized' | 'details'>('full');
+  const [showInactiveFilters, setShowInactiveFilters] = useState(false);
+  const [networkTrafficCollapsed, setNetworkTrafficCollapsed] = useState(false);
 
   const handleCallClick = useCallback((call: NetworkCall) => {
     setSelectedCall((prev) => (prev?.id === call.id ? null : call));
-  }, []);
+    // Automatically set to minimized view (40/60) when a call is selected
+    if (selectedCall?.id !== call.id) {
+      setSplitViewMode('minimized');
+    }
+  }, [selectedCall]);
+
+
+  // Close inactive filters dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showInactiveFilters) {
+        const target = event.target as Element;
+        if (!target.closest('.inactive-filters')) {
+          setShowInactiveFilters(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showInactiveFilters]);
 
   // Auto-hide historical notification after 2 seconds when loading is complete
   useEffect(() => {
@@ -88,71 +112,21 @@ const SidePanelContent: React.FC = () => {
   return (
     <div className="side-panel">
       <header className="panel-header">
-        <h1 className="app-title">Network Investigator</h1>
-        <div className="header-actions">
-          <Suspense fallback={<MinimalSpinner />}>
-            <LazyThemeToggle />
-          </Suspense>
-          {/* Removed screenshot and refresh buttons to comply with Chrome Web Store requirements */}
-          <button className="clear-calls-btn" onClick={clearNetworkCalls}>
-            Clear Calls
-          </button>
-        </div>
-      </header>
-
-      <div className="panel-body">
-        {/* Left Sidebar - 1/3 width */}
-        <div className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
-          <div className="sidebar-header">
-            <div className="sidebar-title">
-              {!sidebarCollapsed && (
-                <>
-                  <h3>Search & Filter</h3>
-                  {filters.length > 0 && (
-                    <span className="sidebar-filter-count">
-                      ({filters.length} saved)
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
+        <div className="header-left">
+          <h1 className="app-title">Network Investigator</h1>
+          
+          {/* Filter Bar in Header */}
+          <div className={`header-filter-bar ${filterBarCollapsed ? "collapsed" : ""}`}>
             <button
-              className="collapse-toggle"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              style={{
-                position: "relative",
-                background:
-                  sidebarCollapsed && (searchConfig.query || filters.length > 0)
-                    ? "#e3f2fd"
-                    : "white",
-              }}
+              className="filter-toggle-btn"
+              onClick={() => setFilterBarCollapsed(!filterBarCollapsed)}
+              title={filterBarCollapsed ? "Show filters" : "Hide filters"}
             >
-              {sidebarCollapsed ? "▶" : "◀"}
-              {sidebarCollapsed &&
-                (searchConfig.query || filters.length > 0) && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "-2px",
-                      right: "-2px",
-                      width: "8px",
-                      height: "8px",
-                      background: "#2196f3",
-                      borderRadius: "50%",
-                      fontSize: "0",
-                      border: "1px solid white",
-                    }}
-                  >
-                    •
-                  </span>
-                )}
+              🔍 {filterBarCollapsed ? "" : "Search & Filter"}
             </button>
-          </div>
-
-          {!sidebarCollapsed && (
-            <>
-              <div className="search-section">
+            
+            {!filterBarCollapsed && (
+              <div className="header-filter-content">
                 <input
                   type="text"
                   placeholder="Search network calls..."
@@ -162,9 +136,9 @@ const SidePanelContent: React.FC = () => {
                     console.log("[Browser Investigator] Search query changed:", newQuery);
                     setSearchConfig({ ...searchConfig, query: newQuery });
                   }}
-                  className="search-input"
+                  className="header-search-input"
                 />
-                <div className="search-options">
+                <div className="header-search-options">
                   <label>
                     <input
                       type="checkbox"
@@ -205,23 +179,115 @@ const SidePanelContent: React.FC = () => {
                     Response
                   </label>
                 </div>
+                <div className="header-filter-chips">
+                  {filters.filter(f => f.isActive).map((filter) => (
+                    <div
+                      key={filter.id}
+                      className="filter-chip active"
+                      onClick={() => updateFilter(filter.id, { isActive: !filter.isActive })}
+                    >
+                      {filter.name}
+                      <button
+                        className="filter-chip-remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateFilter(filter.id, { isActive: false });
+                        }}
+                        title="Deactivate filter"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {filters.filter(f => !f.isActive).length > 0 && (
+                    <div className="inactive-filters">
+                      <button
+                        className="show-inactive-btn"
+                        onClick={() => setShowInactiveFilters(!showInactiveFilters)}
+                        title="Show inactive filters"
+                      >
+                        + {filters.filter(f => !f.isActive).length} inactive
+                      </button>
+                      {showInactiveFilters && (
+                        <div className="inactive-filters-dropdown">
+                          {filters.filter(f => !f.isActive).map((filter) => (
+                            <div
+                              key={filter.id}
+                              className="inactive-filter-item"
+                              onClick={() => updateFilter(filter.id, { isActive: true })}
+                            >
+                              {filter.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    className="add-filter-btn"
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    + Add Filter
+                  </button>
+                </div>
               </div>
-
-              <div className="filter-area-scrollable">
-                <Suspense fallback={<MinimalSpinner />}>
-                  <LazyFilterPanel
-                    filters={filters}
-                    onAddFilter={addFilter}
-                    onUpdateFilter={updateFilter}
-                    onRemoveFilter={removeFilter}
-                  />
-                </Suspense>
-              </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
+        
+        <div className="header-actions">
+          <Suspense fallback={<MinimalSpinner />}>
+            <LazyThemeToggle />
+          </Suspense>
+          {/* Network Traffic collapse/expand button - only show when a call is selected */}
+          {selectedCall && (
+            <button 
+              className="collapse-network-btn"
+              onClick={() => setNetworkTrafficCollapsed(!networkTrafficCollapsed)}
+              title={networkTrafficCollapsed ? "Show Network Traffic" : "Hide Network Traffic"}
+            >
+              {networkTrafficCollapsed ? "▶" : "▼"}
+            </button>
+          )}
+          {/* Removed screenshot and refresh buttons to comply with Chrome Web Store requirements */}
+          <button className="clear-calls-btn" onClick={clearNetworkCalls}>
+            Clear Calls
+          </button>
+        </div>
+      </header>
 
-        {/* Right Content Area - 2/3 width */}
+      {/* Filter Modal */}
+      {showFilters && (
+        <div className="filter-modal-overlay">
+          <div className="filter-modal">
+            <div className="filter-modal-header">
+              <h3>Add Filter</h3>
+              <button
+                className="close-button"
+                onClick={() => setShowFilters(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="filter-modal-content">
+              <Suspense fallback={<MinimalSpinner />}>
+                <LazyFilterPanel
+                  filters={filters}
+                  onAddFilter={(filter) => {
+                    addFilter(filter);
+                    setShowFilters(false);
+                  }}
+                  onUpdateFilter={updateFilter}
+                  onRemoveFilter={removeFilter}
+                />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="panel-body">
+        {/* Main Content Area - Full width */}
         <div className="main-content">
           {/* Historical data loading notification */}
           {isLoadingHistorical && (
@@ -305,27 +371,31 @@ const SidePanelContent: React.FC = () => {
             </Suspense>
           ) : (
             // Split view when a call is selected
-            <div className="split-view">
-              <div className="network-list-panel">
-                <Suspense fallback={<MinimalSpinner />}>
-                  <NetworkCallComponent
-                    calls={filteredCalls}
-                    onCallClick={handleCallClick}
-                    selectedCallId={selectedCall.id}
-                  />
-                </Suspense>
-              </div>
-              <div className="network-detail-panel">
-                <ErrorBoundary>
+            <div className={`split-view split-view-${networkTrafficCollapsed ? 'details' : splitViewMode} ${networkTrafficCollapsed ? 'network-collapsed' : ''}`}>
+              {splitViewMode !== 'details' && !networkTrafficCollapsed && (
+                <div className={`network-list-panel ${splitViewMode === 'minimized' ? 'minimized' : ''}`}>
                   <Suspense fallback={<MinimalSpinner />}>
-                    <LazySafeNetworkDetailTabs
-                      selectedCall={selectedCall}
-                      onClose={() => setSelectedCall(null)}
-                      searchQuery={searchConfig.query}
+                    <NetworkCallComponent
+                      calls={filteredCalls}
+                      onCallClick={handleCallClick}
+                      selectedCallId={selectedCall.id}
                     />
                   </Suspense>
-                </ErrorBoundary>
-              </div>
+                </div>
+              )}
+              {splitViewMode !== 'full' && (
+                <div className="network-detail-panel">
+                  <ErrorBoundary>
+                    <Suspense fallback={<MinimalSpinner />}>
+                      <LazySafeNetworkDetailTabs
+                        selectedCall={selectedCall}
+                        onClose={() => setSelectedCall(null)}
+                        searchQuery={searchConfig.query}
+                      />
+                    </Suspense>
+                  </ErrorBoundary>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -402,7 +472,9 @@ const mountApp = () => {
     const reactRoot = ReactDOM.createRoot(root);
     reactRoot.render(
       <ThemeProvider>
-        <SidePanel />
+        <CopyFormatProvider>
+          <SidePanel />
+        </CopyFormatProvider>
       </ThemeProvider>,
     );
 

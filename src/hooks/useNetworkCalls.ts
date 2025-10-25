@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { NetworkCall, NetworkFilter, SearchConfig } from "../types";
 import { logger } from "../utils/logger";
-import { loadHistoricalNetworkData, HistoricalLoadResult } from "../utils/historicalNetworkLoader";
+import { loadHistoricalNetworkData, HistoricalLoadResult, loadHistoricalResponseContent } from "../utils/historicalNetworkLoader";
 
 const STORAGE_KEYS = {
   FILTERS: "browser-investigator-filters",
@@ -69,6 +69,33 @@ export const useNetworkCalls = () => {
   const [isLoadingStorage, setIsLoadingStorage] = useState(true);
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [historicalLoadResult, setHistoricalLoadResult] = useState<HistoricalLoadResult | null>(null);
+
+  // Manual refresh function for response bodies
+  const refreshResponseBody = useCallback(async (callId: string) => {
+    logger.log("[Browser Investigator] Manual refresh requested for call:", callId);
+    
+    try {
+      // Try HAR data first
+      const responseContent = await loadHistoricalResponseContent(callId);
+      if (responseContent) {
+        setNetworkCalls((prev) =>
+          prev.map((existingCall) =>
+            existingCall.id === callId
+              ? { ...existingCall, responseBody: responseContent }
+              : existingCall
+          )
+        );
+        logger.log("[Browser Investigator] Manual refresh SUCCESS: Response body loaded for:", callId);
+        return true;
+      } else {
+        logger.warn("[Browser Investigator] Manual refresh FAILED: No response content found for:", callId);
+        return false;
+      }
+    } catch (error) {
+      logger.error("[Browser Investigator] Manual refresh ERROR for:", callId, error);
+      return false;
+    }
+  }, []);
 
   // Initialize with localStorage data synchronously for faster startup
   const [filters, setFilters] = useState<NetworkFilter[]>(
@@ -185,6 +212,7 @@ export const useNetworkCalls = () => {
     const listener = (request: any) => {
       // eslint-disable-next-line no-console
       logger.log("[Browser Investigator] Network call captured:", request);
+      logger.log("[Browser Investigator] Full request object:", JSON.stringify(request, null, 2));
 
       // Headers might be in different formats, let's normalize them
       const requestHeaders = request.request?.headers || {};
@@ -195,6 +223,25 @@ export const useNetworkCalls = () => {
         "[Browser Investigator] Raw response headers:",
         responseHeaders,
       );
+
+      // Check if response body is available immediately from various locations
+      const immediateResponseBody = request.response?.content?.text || 
+                                   request.response?.body || 
+                                   request.response?.content?.text ||
+                                   request.response?.content?.body ||
+                                   request.response?.text ||
+                                   request.response?.data;
+      
+      logger.log("[Browser Investigator] Immediate response body available:", !!immediateResponseBody);
+      if (immediateResponseBody) {
+        logger.log("[Browser Investigator] Response body length:", immediateResponseBody.length);
+        logger.log("[Browser Investigator] Response body preview:", immediateResponseBody.substring(0, 100));
+      } else {
+        logger.log("[Browser Investigator] No immediate response body found. Available response properties:", Object.keys(request.response || {}));
+        if (request.response?.content) {
+          logger.log("[Browser Investigator] Response content properties:", Object.keys(request.response.content));
+        }
+      }
 
       const call: NetworkCall = {
         id:
@@ -207,7 +254,7 @@ export const useNetworkCalls = () => {
         requestHeaders,
         responseHeaders,
         requestBody: request.request?.postData?.text,
-        responseBody: undefined,
+        responseBody: immediateResponseBody || undefined,
         timestamp: Date.parse(request.startedDateTime) || Date.now(),
         duration: request.time || 0,
         error:
@@ -216,26 +263,102 @@ export const useNetworkCalls = () => {
             : undefined,
       };
 
-      // Add call immediately without response body
+      // Add call immediately with response body if available
       setNetworkCalls((prev) => [...prev, { ...call }]);
 
-      // Get response content asynchronously and update the call
-      if (typeof request.getContent === "function") {
-        request.getContent((content: string, encoding: string) => {
-          setNetworkCalls((prev) =>
-            prev.map((existingCall) =>
-              existingCall.id === call.id
-                ? { ...existingCall, responseBody: content }
-                : existingCall
-            )
-          );
-          // eslint-disable-next-line no-console
-          logger.log(
-            "[Browser Investigator] Response body captured for:",
-            call.url,
-          );
-        });
+      // If we don't have immediate response body, try multiple fallback strategies
+      if (!immediateResponseBody) {
+        logger.log("[Browser Investigator] No immediate response body, trying fallback strategies for:", call.url);
+        
+        // Strategy 1: Try HAR data immediately (fastest)
+        setTimeout(async () => {
+          try {
+            logger.log("[Browser Investigator] Strategy 1: Attempting immediate HAR load for:", call.url);
+            const responseContent = await loadHistoricalResponseContent(call.id);
+            if (responseContent) {
+              setNetworkCalls((prev) =>
+                prev.map((existingCall) =>
+                  existingCall.id === call.id
+                    ? { ...existingCall, responseBody: responseContent }
+                    : existingCall
+                )
+              );
+              logger.log(
+                "[Browser Investigator] Strategy 1 SUCCESS: Response body loaded from HAR immediately for:",
+                call.url,
+                "Length:",
+                responseContent.length
+              );
+              return; // Exit early if successful
+            }
+          } catch (error) {
+            logger.error(
+              "[Browser Investigator] Strategy 1 FAILED: Error loading response content from HAR immediately for:",
+              call.url,
+              error
+            );
+          }
+        }, 50); // Very short delay
+
+        // Strategy 2: Try getContent method (if available)
+        if (typeof request.getContent === "function") {
+          setTimeout(() => {
+            logger.log("[Browser Investigator] Strategy 2: Attempting getContent for:", call.url);
+            request.getContent((content: string, encoding: string) => {
+              if (content) {
+                setNetworkCalls((prev) =>
+                  prev.map((existingCall) =>
+                    existingCall.id === call.id
+                      ? { ...existingCall, responseBody: content }
+                      : existingCall
+                  )
+                );
+                logger.log(
+                  "[Browser Investigator] Strategy 2 SUCCESS: Response body loaded via getContent for:",
+                  call.url,
+                  "Length:",
+                  content.length
+                );
+              } else {
+                logger.warn("[Browser Investigator] Strategy 2 FAILED: getContent returned empty for:", call.url);
+              }
+            });
+          }, 200); // Slightly longer delay for getContent
+        }
+
+        // Strategy 3: Final HAR fallback with longer delay
+        setTimeout(async () => {
+          try {
+            logger.log("[Browser Investigator] Strategy 3: Final HAR fallback for:", call.url);
+            const responseContent = await loadHistoricalResponseContent(call.id);
+            if (responseContent) {
+              setNetworkCalls((prev) =>
+                prev.map((existingCall) =>
+                  existingCall.id === call.id
+                    ? { ...existingCall, responseBody: responseContent }
+                    : existingCall
+                )
+              );
+              logger.log(
+                "[Browser Investigator] Strategy 3 SUCCESS: Response body loaded from HAR fallback for:",
+                call.url,
+                "Length:",
+                responseContent.length
+              );
+            } else {
+              logger.warn("[Browser Investigator] Strategy 3 FAILED: No response content found in HAR for:", call.url);
+            }
+          } catch (error) {
+            logger.error(
+              "[Browser Investigator] Strategy 3 FAILED: Error in final HAR fallback for:",
+              call.url,
+              error
+            );
+          }
+        }, 1000); // Final fallback with 1 second delay
       }
+
+      // Note: All async loading is now handled by the strategy system above
     };
     // @ts-ignore
     chrome.devtools.network.onRequestFinished.addListener(listener);
@@ -502,5 +625,6 @@ export const useNetworkCalls = () => {
     isLoadingStorage,
     isLoadingHistorical,
     historicalLoadResult,
+    refreshResponseBody,
   };
 };

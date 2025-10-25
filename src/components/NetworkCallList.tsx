@@ -2,6 +2,7 @@ import React from "react";
 import { NetworkCall } from "../types";
 import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import { logger } from "../utils/logger";
+import CopyDropdown from "./CopyDropdown";
 
 interface NetworkCallListProps {
   calls: NetworkCall[];
@@ -52,137 +53,6 @@ const NetworkCallList: React.FC<NetworkCallListProps> = ({
     });
   };
 
-  const copyAsCurl = (call: NetworkCall, buttonElement: HTMLButtonElement) => {
-    logger.log("[NetworkCallList] copyAsCurl called with:", call);
-    logger.log("[NetworkCallList] Button element:", buttonElement);
-
-    try {
-      // Start building the cURL command
-      let curl = `curl -X ${call.method || "GET"} "${call.url || ""}"`;
-      logger.log("[NetworkCallList] Initial cURL:", curl);
-
-      // Handle headers - they might be in different formats
-      const headers = call.requestHeaders || {};
-      logger.log("[NetworkCallList] Headers data:", headers);
-      logger.log("[NetworkCallList] Headers type:", typeof headers);
-      logger.log("[NetworkCallList] Is headers array?", Array.isArray(headers));
-
-      if (Array.isArray(headers)) {
-        logger.log("[NetworkCallList] Processing headers as array");
-        // Handle array format: [{name: 'Content-Type', value: 'application/json'}, ...]
-        headers.forEach((header: any, index: number) => {
-          logger.log(`[NetworkCallList] Header ${index}:`, header);
-          const name = header.name || header.key;
-          const value = header.value;
-          if (name && value) {
-            curl += ` -H "${name}: ${value}"`;
-            logger.log(`[NetworkCallList] Added header: ${name}: ${value}`);
-          }
-        });
-      } else if (typeof headers === "object" && headers !== null) {
-        logger.log("[NetworkCallList] Processing headers as object");
-        // Handle object format: {'Content-Type': 'application/json', ...}
-        Object.entries(headers).forEach(([key, value]) => {
-          logger.log(`[NetworkCallList] Header entry:`, key, value);
-          if (key && value) {
-            // Handle nested value objects
-            const headerValue =
-              typeof value === "object" && value !== null
-                ? (value as any).value ||
-                  (value as any).name ||
-                  JSON.stringify(value)
-                : String(value);
-            curl += ` -H "${key}: ${headerValue}"`;
-            logger.log(
-              `[NetworkCallList] Added header: ${key}: ${headerValue}`,
-            );
-          }
-        });
-      }
-
-      // Add request body for appropriate methods
-      if (
-        call.requestBody &&
-        ["POST", "PUT", "PATCH"].includes(call.method || "")
-      ) {
-        logger.log("[NetworkCallList] Adding request body:", call.requestBody);
-        // Escape single quotes in the request body
-        const escapedBody = call.requestBody.replace(/'/g, "'\"'\"'");
-        curl += ` -d '${escapedBody}'`;
-      }
-
-      logger.log("[NetworkCallList] Final cURL command:", curl);
-
-      // Use execCommand to copy text - more reliable in extensions
-      let copied = false;
-
-      // Create a temporary textarea element
-      const textArea = document.createElement("textarea");
-      textArea.value = curl;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-999999px";
-      textArea.style.top = "-999999px";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-
-      try {
-        copied = document.execCommand("copy");
-        logger.log("[NetworkCallList] cURL copied using execCommand");
-      } catch (execError) {
-        logger.log("[NetworkCallList] execCommand failed:", execError);
-      }
-
-      document.body.removeChild(textArea);
-
-      // If execCommand failed, show the cURL in an alert as fallback
-      if (!copied) {
-        logger.log(
-          "[NetworkCallList] execCommand failed, showing cURL in alert",
-        );
-        alert(`Copy this cURL command:\n\n${curl}`);
-        copied = true; // Consider it "copied" since user can manually copy from alert
-      }
-
-      // Show success feedback
-      const originalText = buttonElement.textContent;
-      logger.log("[NetworkCallList] Original button text:", originalText);
-      buttonElement.textContent = "Copied!";
-      buttonElement.style.background = "#4caf50";
-      buttonElement.style.borderColor = "#4caf50";
-      buttonElement.style.color = "white";
-      logger.log("[NetworkCallList] Button feedback applied");
-
-      // Reset button after 2 seconds
-      setTimeout(() => {
-        buttonElement.textContent = originalText;
-        buttonElement.style.background = "white";
-        buttonElement.style.borderColor = "#ddd";
-        buttonElement.style.color = "#333";
-        logger.log("[NetworkCallList] Button reset to original state");
-      }, 2000);
-    } catch (error) {
-      logger.error("[NetworkCallList] Error in copyAsCurl:", error);
-
-      // Show error feedback
-      const originalText = buttonElement.textContent;
-      buttonElement.textContent = "Error!";
-      buttonElement.style.background = "#f44336";
-      buttonElement.style.borderColor = "#f44336";
-      buttonElement.style.color = "white";
-      logger.log("[NetworkCallList] Error feedback applied");
-
-      // Reset button after 2 seconds
-      setTimeout(() => {
-        buttonElement.textContent = originalText;
-        buttonElement.style.background = "white";
-        buttonElement.style.borderColor = "#ddd";
-        buttonElement.style.color = "#333";
-        logger.log("[NetworkCallList] Button reset after error");
-      }, 2000);
-    }
-  };
 
   const renderURLWithUUIDs = (url: string) => {
     const uuidMatches = detectUUIDs(url);
@@ -246,70 +116,59 @@ const NetworkCallList: React.FC<NetworkCallListProps> = ({
           <p>Open DevTools and navigate to see network activity.</p>
         </div>
       ) : (
-        calls.map((call) => (
-          <div
-            key={call.id}
-            className={`network-call-item ${selectedCallId === call.id ? 'selected' : ''}`}
-            onClick={() => onCallClick?.(call)}
-          >
-            {/* First row: Method, Status, Duration, Time, Copy cURL */}
-            <div className="call-header">
-              <div className="call-info-left">
-                <span
-                  className="method-badge"
-                  style={{ backgroundColor: getMethodColor(call.method) }}
-                >
-                  {call.method}
-                </span>
-                <span
-                  className="status-badge"
-                  style={{ backgroundColor: getStatusColor(call.status) }}
-                >
-                  {call.status}
-                </span>
-                <span className="duration">
-                  {formatDuration(call.duration)}
-                </span>
-                <span className="timestamp">
-                  {formatTimestamp(call.timestamp)}
-                </span>
-              </div>
-              <button
-                className="copy-curl-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyAsCurl(call, e.currentTarget);
-                }}
-                title="Copy as cURL"
-                style={{
-                  padding: "4px 8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "3px",
-                  background: "white",
-                  color: "#333",
-                  cursor: "pointer",
-                  fontSize: "10px",
-                  fontWeight: "500",
-                  transition: "all 0.2s",
-                  whiteSpace: "nowrap",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f0f0f0";
-                  e.currentTarget.style.borderColor = "#bbb";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "white";
-                  e.currentTarget.style.borderColor = "#ddd";
-                }}
+        <table className="network-call-table">
+          <thead className="table-header">
+            <tr>
+              <th className="table-cell method">Method</th>
+              <th className="table-cell status">Status</th>
+              <th className="table-cell url">URL</th>
+              <th className="table-cell actions">Actions</th>
+              <th className="table-cell duration">Duration</th>
+              <th className="table-cell time">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calls.map((call) => (
+              <tr
+                key={call.id}
+                className={`table-row ${selectedCallId === call.id ? 'selected' : ''}`}
+                onClick={() => onCallClick?.(call)}
               >
-                Copy cURL
-              </button>
-            </div>
-
-            {/* Second row: URL with full width and wrapping */}
-            <div className="call-url">{renderURLWithUUIDs(call.url)}</div>
-          </div>
-        ))
+                <td className="table-cell method">
+                  <span
+                    className="method-badge"
+                    style={{ backgroundColor: getMethodColor(call.method) }}
+                  >
+                    {call.method}
+                  </span>
+                </td>
+                <td className="table-cell status">
+                  <span
+                    className="status-badge"
+                    style={{ backgroundColor: getStatusColor(call.status) }}
+                  >
+                    {call.status}
+                  </span>
+                </td>
+                <td className="table-cell url" title={call.url}>
+                  {renderURLWithUUIDs(call.url)}
+                </td>
+                <td className="table-cell actions">
+                  <CopyDropdown
+                    call={call}
+                    allCalls={calls}
+                  />
+                </td>
+                <td className="table-cell duration">
+                  {formatDuration(call.duration)}
+                </td>
+                <td className="table-cell time" title={formatTimestamp(call.timestamp)}>
+                  {formatTimestamp(call.timestamp)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

@@ -8,6 +8,7 @@ import React, {
 import { NetworkCall } from "../types";
 import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import { logger } from "../utils/logger";
+import CopyDropdown from "./CopyDropdown";
 
 interface VirtualizedNetworkCallListProps {
   calls: NetworkCall[];
@@ -15,7 +16,7 @@ interface VirtualizedNetworkCallListProps {
   selectedCallId?: string | null;
 }
 
-const ITEM_HEIGHT = 80; // Reduced height since URLs no longer wrap to multiple lines
+const ITEM_HEIGHT = 24; // Single row table height
 const BUFFER_SIZE = 5; // Number of items to render outside visible area
 
 const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
@@ -101,97 +102,6 @@ const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
     });
   };
 
-  const copyAsCurl = useCallback(
-    (call: NetworkCall, buttonElement: HTMLButtonElement) => {
-      try {
-        let curl = `curl -X ${call.method || "GET"} "${call.url || ""}"`;
-
-        const headers = call.requestHeaders || {};
-
-        if (Array.isArray(headers)) {
-          headers.forEach((header: any) => {
-            const name = header.name || header.key;
-            const value = header.value;
-            if (name && value) {
-              curl += ` -H "${name}: ${value}"`;
-            }
-          });
-        } else if (typeof headers === "object" && headers !== null) {
-          Object.entries(headers).forEach(([key, value]) => {
-            if (key && value) {
-              const headerValue =
-                typeof value === "object" && value !== null
-                  ? (value as any).value ||
-                    (value as any).name ||
-                    JSON.stringify(value)
-                  : String(value);
-              curl += ` -H "${key}: ${headerValue}"`;
-            }
-          });
-        }
-
-        if (
-          call.requestBody &&
-          ["POST", "PUT", "PATCH"].includes(call.method || "")
-        ) {
-          const escapedBody = call.requestBody.replace(/'/g, "'\"'\"'");
-          curl += ` -d '${escapedBody}'`;
-        }
-
-        // Copy to clipboard
-        const textArea = document.createElement("textarea");
-        textArea.value = curl;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
-        let copied = false;
-        try {
-          copied = document.execCommand("copy");
-        } catch (execError) {
-          // Fallback: show in alert
-          alert(`Copy this cURL command:\n\n${curl}`);
-          copied = true;
-        }
-
-        document.body.removeChild(textArea);
-
-        // Show feedback
-        const originalText = buttonElement.textContent;
-        buttonElement.textContent = "Copied!";
-        buttonElement.style.background = "#4caf50";
-        buttonElement.style.borderColor = "#4caf50";
-        buttonElement.style.color = "white";
-
-        setTimeout(() => {
-          buttonElement.textContent = originalText;
-          buttonElement.style.background = "white";
-          buttonElement.style.borderColor = "#ddd";
-          buttonElement.style.color = "#333";
-        }, 2000);
-      } catch (error) {
-        logger.error("Error copying cURL:", error);
-
-        const originalText = buttonElement.textContent;
-        buttonElement.textContent = "Error!";
-        buttonElement.style.background = "#f44336";
-        buttonElement.style.borderColor = "#f44336";
-        buttonElement.style.color = "white";
-
-        setTimeout(() => {
-          buttonElement.textContent = originalText;
-          buttonElement.style.background = "white";
-          buttonElement.style.borderColor = "#ddd";
-          buttonElement.style.color = "#333";
-        }, 2000);
-      }
-    },
-    [],
-  );
 
   const renderURLWithUUIDs = useCallback((url: string) => {
     const uuidMatches = detectUUIDs(url);
@@ -248,106 +158,101 @@ const VirtualizedNetworkCallList: React.FC<VirtualizedNetworkCallListProps> = ({
   const offsetY = visibleRange.startIndex * ITEM_HEIGHT;
 
   return (
-    <div
-      className="network-call-list virtualized"
-      ref={containerRef}
-      onScroll={handleScroll}
-      style={{
-        height: "100%",
-        overflowY: "auto",
-        position: "relative",
-      }}
-    >
+    <div className="network-call-list virtualized" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {calls.length === 0 ? (
         <div className="no-calls">
           <p>No network calls captured yet.</p>
           <p>Open DevTools and navigate to see network activity.</p>
         </div>
       ) : (
-        <div style={{ height: totalHeight, position: "relative" }}>
+        <>
+          {/* Fixed Header - Never Scrolls */}
+          <div className="fixed-header" style={{ flexShrink: 0, zIndex: 10 }}>
+            <div className="table-header-row">
+              <div className="table-cell method">Method</div>
+              <div className="table-cell status">Status</div>
+              <div className="table-cell url">URL</div>
+              <div className="table-cell actions">Actions</div>
+              <div className="table-cell duration">Duration</div>
+              <div className="table-cell time">Time</div>
+            </div>
+          </div>
+          
+          {/* Scrollable Content */}
           <div
+            ref={containerRef}
+            onScroll={handleScroll}
             style={{
-              transform: `translateY(${offsetY}px)`,
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
+              flex: 1,
+              overflowY: "auto",
+              position: "relative",
             }}
           >
-            {visibleItems.map((call, index) => {
-              const actualIndex = visibleRange.startIndex + index;
-              return (
-                <div
-                  key={call.id}
-                  className={`network-call-item ${selectedCallId === call.id ? 'selected' : ''}`}
-                  onClick={() => onCallClick?.(call)}
-                  style={{
-                    height: ITEM_HEIGHT,
-                    minHeight: ITEM_HEIGHT,
-                    position: "relative",
-                  }}
-                >
-                  {/* First row: Method, Status, Duration, Time, Copy cURL */}
-                  <div className="call-header">
-                    <div className="call-info-left">
-                      <span
-                        className="method-badge"
-                        style={{ backgroundColor: getMethodColor(call.method) }}
-                      >
-                        {call.method}
-                      </span>
-                      <span
-                        className="status-badge"
-                        style={{ backgroundColor: getStatusColor(call.status) }}
-                      >
-                        {call.status}
-                      </span>
-                      <span className="duration">
-                        {formatDuration(call.duration)}
-                      </span>
-                      <span className="timestamp">
-                        {formatTimestamp(call.timestamp)}
-                      </span>
-                    </div>
-                    <button
-                      className="copy-curl-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyAsCurl(call, e.currentTarget);
-                      }}
-                      title="Copy as cURL"
+            <div style={{ height: totalHeight, position: "relative" }}>
+              <div
+                style={{
+                  transform: `translateY(${offsetY}px)`,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                }}
+              >
+                {visibleItems.map((call, index) => {
+                  const actualIndex = visibleRange.startIndex + index;
+                  return (
+                    <div
+                      key={call.id}
+                      className={`table-row ${selectedCallId === call.id ? 'selected' : ''}`}
+                      onClick={() => onCallClick?.(call)}
                       style={{
-                        padding: "4px 8px",
-                        border: "1px solid #ddd",
-                        borderRadius: "3px",
-                        background: "white",
-                        color: "#333",
+                        height: ITEM_HEIGHT,
+                        minHeight: ITEM_HEIGHT,
+                        display: "flex",
+                        alignItems: "center",
+                        borderBottom: "1px solid var(--border-light)",
                         cursor: "pointer",
-                        fontSize: "10px",
-                        fontWeight: "500",
-                        transition: "all 0.2s",
-                        whiteSpace: "nowrap",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#f0f0f0";
-                        e.currentTarget.style.borderColor = "#bbb";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "white";
-                        e.currentTarget.style.borderColor = "#ddd";
+                        transition: "all 0.2s ease",
                       }}
                     >
-                      Copy cURL
-                    </button>
-                  </div>
-
-                  {/* Second row: URL with full width and wrapping */}
-                  <div className="call-url">{renderURLWithUUIDs(call.url)}</div>
-                </div>
-              );
-            })}
+                      <div className="table-cell method">
+                        <span
+                          className="method-badge"
+                          style={{ backgroundColor: getMethodColor(call.method) }}
+                        >
+                          {call.method}
+                        </span>
+                      </div>
+                      <div className="table-cell status">
+                        <span
+                          className="status-badge"
+                          style={{ backgroundColor: getStatusColor(call.status) }}
+                        >
+                          {call.status}
+                        </span>
+                      </div>
+                      <div className="table-cell url" title={call.url}>
+                        {renderURLWithUUIDs(call.url)}
+                      </div>
+                      <div className="table-cell actions">
+                        <CopyDropdown
+                          call={call}
+                          allCalls={calls}
+                        />
+                      </div>
+                      <div className="table-cell duration">
+                        {formatDuration(call.duration)}
+                      </div>
+                      <div className="table-cell time" title={formatTimestamp(call.timestamp)}>
+                        {formatTimestamp(call.timestamp)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

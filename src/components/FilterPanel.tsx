@@ -431,6 +431,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 fontWeight: "bold",
                 marginBottom: "4px",
                 display: "block",
+                color: "var(--text-primary)",
               }}
             >
               HTTP Methods:
@@ -516,6 +517,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 fontWeight: "bold",
                 marginBottom: "4px",
                 display: "block",
+                color: "var(--text-primary)",
               }}
             >
               Response Codes:
@@ -537,16 +539,16 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
             style={{
               marginTop: "8px",
               padding: "4px",
-              border: "1px solid #e0e0e0",
+              border: "1px solid var(--border-color)",
               borderRadius: "3px",
-              background: "#f8f9fa",
+              background: "var(--bg-accent)",
             }}
           >
             <label
               style={{
                 fontWeight: "bold",
                 fontSize: "10px",
-                color: "#2c3e50",
+                color: "var(--text-primary)",
                 marginBottom: "4px",
                 display: "block",
               }}
@@ -559,6 +561,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 alignItems: "center",
                 gap: "4px",
                 fontSize: "10px",
+                color: "var(--text-primary)",
               }}
             >
               <input

@@ -4,6 +4,7 @@ import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import JsonViewer from "./JsonViewer";
 import { logger } from "../utils/logger";
 import { enhancedJsonSearch } from "../utils/jsonSearch";
+import SimpleCopyButton from "./SimpleCopyButton";
 
 interface NetworkDetailTabsProps {
   selectedCall: NetworkCall;
@@ -44,6 +45,109 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
   const [headersSearchResults, setHeadersSearchResults] = useState<
     Array<{ position: number; length: number; text: string }>
   >([]);
+
+
+  // JSON expand/collapse state
+  const [jsonExpandAll, setJsonExpandAll] = useState(false);
+  const [jsonCollapseAll, setJsonCollapseAll] = useState(false);
+
+  // Copy button feedback state
+  const [isCopied, setIsCopied] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<boolean | null>(null);
+
+  // Handle expand all JSON
+  const handleExpandAll = () => {
+    setJsonExpandAll(true);
+    setJsonCollapseAll(false);
+    // Reset after a short delay to allow the JsonViewer to process
+    setTimeout(() => setJsonExpandAll(false), 100);
+  };
+
+  // Handle collapse all JSON
+  const handleCollapseAll = () => {
+    setJsonCollapseAll(true);
+    setJsonExpandAll(false);
+    // Reset after a short delay to allow the JsonViewer to process
+    setTimeout(() => setJsonCollapseAll(false), 100);
+  };
+
+  // Get content to copy based on active tab with proper formatting
+  const getContentToCopy = () => {
+    switch (activeTab) {
+      case "headers":
+        return JSON.stringify(selectedCall.responseHeaders, null, 2);
+      case "payload":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.requestBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.requestBody || "";
+        }
+      case "response":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.responseBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.responseBody || "";
+        }
+      case "preview":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.responseBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.responseBody || "";
+        }
+      case "initiator":
+        return (selectedCall as any).stackTrace || "";
+      case "timing":
+        return JSON.stringify({
+          duration: selectedCall.duration,
+          timestamp: selectedCall.timestamp,
+          startTime: (selectedCall as any).startTime,
+          endTime: (selectedCall as any).endTime
+        }, null, 2);
+      default:
+        return selectedCall.url;
+    }
+  };
+
+  // Handle copy button click - copy tab content
+  const handleCopy = async () => {
+    try {
+      const content = getContentToCopy();
+      const { copyToClipboard } = await import("../utils/clipboardUtils");
+      const success = await copyToClipboard(content);
+      
+      if (success) {
+        setIsCopied(true);
+        setCopySuccess(true);
+        setTimeout(() => {
+          setIsCopied(false);
+          setCopySuccess(null);
+        }, 2000); // Reset after 2 seconds
+        console.log("Content copied successfully");
+      } else {
+        setIsCopied(true);
+        setCopySuccess(false);
+        setTimeout(() => {
+          setIsCopied(false);
+          setCopySuccess(null);
+        }, 1000);
+        console.error("Failed to copy content");
+      }
+    } catch (error) {
+      setIsCopied(true);
+      setCopySuccess(false);
+      setTimeout(() => {
+        setIsCopied(false);
+        setCopySuccess(null);
+      }, 1000);
+      console.error("Failed to copy content:", error);
+    }
+  };
 
   // Update search queries when searchQuery prop changes
   React.useEffect(() => {
@@ -199,24 +303,6 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
     }, 150);
   };
 
-  const navigateToNextPayloadResult = () => {
-    if (payloadSearchResults.length > 1) {
-      const newIndex =
-        (currentPayloadSearchIndex + 1) % payloadSearchResults.length;
-      setCurrentPayloadSearchIndex(newIndex);
-      scrollToPayloadResult(newIndex);
-    }
-  };
-
-  const navigateToPrevPayloadResult = () => {
-    if (payloadSearchResults.length > 1) {
-      const newIndex =
-        (currentPayloadSearchIndex - 1 + payloadSearchResults.length) %
-        payloadSearchResults.length;
-      setCurrentPayloadSearchIndex(newIndex);
-      scrollToPayloadResult(newIndex);
-    }
-  };
 
   // Headers search navigation functions
   const scrollToHeadersResult = (index: number) => {
@@ -521,51 +607,6 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const copyAsCurl = () => {
-    let curl = `curl -X ${selectedCall.method} "${selectedCall.url}"`;
-
-    Object.entries(selectedCall.requestHeaders).forEach(([key, value]) => {
-      curl += ` -H "${key}: ${value}"`;
-    });
-
-    if (
-      selectedCall.requestBody &&
-      ["POST", "PUT", "PATCH"].includes(selectedCall.method)
-    ) {
-      curl += ` -d '${selectedCall.requestBody}'`;
-    }
-
-    // Use execCommand to copy text - more reliable in extensions
-    let copied = false;
-
-    // Create a temporary textarea element
-    const textArea = document.createElement("textarea");
-    textArea.value = curl;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
-    try {
-      copied = document.execCommand("copy");
-      logger.log("[NetworkDetailTabs] cURL copied using execCommand");
-    } catch (execError) {
-      logger.log("[NetworkDetailTabs] execCommand failed:", execError);
-    }
-
-    document.body.removeChild(textArea);
-
-    // If execCommand failed, show the cURL in an alert as fallback
-    if (!copied) {
-      logger.log(
-        "[NetworkDetailTabs] execCommand failed, showing cURL in alert",
-      );
-      alert(`Copy this cURL command:\n\n${curl}`);
-    }
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -585,49 +626,6 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
               }}
             >
               <h4 style={{ margin: "0 0 8px 0" }}>Headers</h4>
-              <div className="response-search">
-                <input
-                  type="text"
-                  placeholder="Search in headers..."
-                  value={headersSearchQuery}
-                  onChange={(e) => setHeadersSearchQuery(e.target.value)}
-                  className="response-search-input"
-                />
-                {headersSearchResults.length > 0 && (
-                  <div className="search-navigation">
-                    <span className="search-result-count">
-                      {currentHeadersSearchIndex + 1} of{" "}
-                      {headersSearchResults.length}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigateToPrevHeadersResult();
-                      }}
-                      disabled={headersSearchResults.length <= 1}
-                      className="search-nav-button"
-                      title="Previous result"
-                      type="button"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigateToNextHeadersResult();
-                      }}
-                      disabled={headersSearchResults.length <= 1}
-                      className="search-nav-button"
-                      title="Next result"
-                      type="button"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
                           <div className="headers-section">
                 <h4>General</h4>
@@ -701,106 +699,65 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
             {selectedCall.requestBody ? (
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
+                  flex: 1,
+                  padding: "8px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "4px",
+                  backgroundColor: "var(--bg-tertiary)",
+                  margin: "0 0 12px 0",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  overflow: "visible",
+                  marginRight: "0",
+                  paddingRight: "8px",
                 }}
               >
-                <div
-                  className="response-header"
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 10,
-                    backgroundColor: "var(--bg-primary)",
-                    borderBottom: "1px solid var(--border-color)",
-                    padding: "12px",
-                    marginBottom: "0",
-                  }}
-                >
-                  <h4 style={{ margin: "0 0 8px 0" }}>Request Payload</h4>
-                  <div className="response-search">
-                    <input
-                      type="text"
-                      placeholder="Search in payload..."
-                      value={payloadSearchQuery}
-                      onChange={(e) => setPayloadSearchQuery(e.target.value)}
-                      className="response-search-input"
-                    />
-                    {payloadSearchResults.length > 0 && (
-                      <div className="search-navigation">
-                        <span className="search-result-count">
-                          {currentPayloadSearchIndex + 1} of{" "}
-                          {payloadSearchResults.length}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigateToPrevPayloadResult();
-                          }}
-                          disabled={payloadSearchResults.length <= 1}
-                          className="search-nav-button"
-                          title="Previous result"
-                          type="button"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigateToNextPayloadResult();
-                          }}
-                          disabled={payloadSearchResults.length <= 1}
-                          className="search-nav-button"
-                          title="Next result"
-                          type="button"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    overflow: "auto",
-                    padding: "8px",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: "var(--bg-tertiary)",
-                    margin: "0 12px 12px 12px",
-                  }}
-                >
-                  {(() => {
-                    try {
-                      const parsed = JSON.parse(selectedCall.requestBody);
-                      return (
-                        <JsonViewer
-                          data={parsed}
-                          searchQuery={payloadSearchQuery}
-                          currentSearchIndex={currentPayloadSearchIndex}
-                          searchResults={payloadSearchResults}
-                          searchDataAttribute="data-payload-search-result-index"
-                        />
-                      );
-                    } catch {
-                      return (
-                        <pre>
-                          {renderPayloadWithHighlights(
-                            selectedCall.requestBody,
-                            payloadSearchQuery,
-                          )}
-                        </pre>
-                      );
-                    }
-                  })()}
-                </div>
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(selectedCall.requestBody);
+                    return (
+                      <JsonViewer
+                        data={parsed}
+                        searchQuery={payloadSearchQuery}
+                        currentSearchIndex={currentPayloadSearchIndex}
+                        searchResults={payloadSearchResults}
+                        searchDataAttribute="data-payload-search-result-index"
+                        onExpandAll={handleExpandAll}
+                        onCollapseAll={handleCollapseAll}
+                        jsonExpandAll={jsonExpandAll}
+                        jsonCollapseAll={jsonCollapseAll}
+                      />
+                    );
+                  } catch {
+                    return (
+                      <pre>
+                        {renderPayloadWithHighlights(
+                          selectedCall.requestBody,
+                          payloadSearchQuery,
+                        )}
+                      </pre>
+                    );
+                  }
+                })()}
               </div>
             ) : (
-              <div className="empty-state">No request payload</div>
+              <div className="empty-state">
+                {selectedCall.requestBody === undefined ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="loading-spinner" style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid var(--border-color)',
+                      borderTop: '2px solid var(--accent-blue)',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}></div>
+                    Loading request payload...
+                  </div>
+                ) : (
+                  "No request payload"
+                )}
+              </div>
             )}
           </div>
         );
@@ -810,7 +767,6 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
           <div className="tab-content">
             {selectedCall.responseBody ? (
               <div>
-                <h4>Response Preview</h4>
                 <div className="response-preview">
                   {(() => {
                     try {
@@ -836,105 +792,65 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
             {selectedCall.responseBody ? (
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
+                  flex: 1,
+                  padding: "8px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "4px",
+                  backgroundColor: "var(--bg-tertiary)",
+                  margin: "0 0 12px 0",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  overflow: "visible",
+                  marginRight: "0",
+                  paddingRight: "8px",
                 }}
               >
-                <div
-                  className="response-header"
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 10,
-                    backgroundColor: "var(--bg-primary)",
-                    borderBottom: "1px solid var(--border-color)",
-                    padding: "12px",
-                    marginBottom: "0",
-                  }}
-                >
-                  <h4 style={{ margin: "0 0 8px 0" }}>Response</h4>
-                  <div className="response-search">
-                    <input
-                      type="text"
-                      placeholder="Search in response..."
-                      value={responseSearchQuery}
-                      onChange={(e) => setResponseSearchQuery(e.target.value)}
-                      className="response-search-input"
-                    />
-                    {searchResults.length > 0 && (
-                      <div className="search-navigation">
-                        <span className="search-result-count">
-                          {currentSearchIndex + 1} of {searchResults.length}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigateToPrevResult();
-                          }}
-                          disabled={searchResults.length <= 1}
-                          className="search-nav-button"
-                          title="Previous result"
-                          type="button"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigateToNextResult();
-                          }}
-                          disabled={searchResults.length <= 1}
-                          className="search-nav-button"
-                          title="Next result"
-                          type="button"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    overflow: "auto",
-                    padding: "8px",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: "var(--bg-tertiary)",
-                    margin: "0 12px 12px 12px",
-                  }}
-                >
-                  {(() => {
-                    try {
-                      const parsed = JSON.parse(selectedCall.responseBody);
-                      return (
-                        <JsonViewer
-                          data={parsed}
-                          searchQuery={responseSearchQuery}
-                          currentSearchIndex={currentSearchIndex}
-                          searchResults={searchResults}
-                          searchDataAttribute="data-search-result-index"
-                        />
-                      );
-                    } catch {
-                      return (
-                        <pre>
-                          {renderTextWithHighlights(
-                            selectedCall.responseBody,
-                            responseSearchQuery,
-                          )}
-                        </pre>
-                      );
-                    }
-                  })()}
-                </div>
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(selectedCall.responseBody);
+                    return (
+                      <JsonViewer
+                        data={parsed}
+                        searchQuery={responseSearchQuery}
+                        currentSearchIndex={currentSearchIndex}
+                        searchResults={searchResults}
+                        searchDataAttribute="data-search-result-index"
+                        onExpandAll={handleExpandAll}
+                        onCollapseAll={handleCollapseAll}
+                        jsonExpandAll={jsonExpandAll}
+                        jsonCollapseAll={jsonCollapseAll}
+                      />
+                    );
+                  } catch {
+                    return (
+                      <pre>
+                        {renderTextWithHighlights(
+                          selectedCall.responseBody,
+                          responseSearchQuery,
+                        )}
+                      </pre>
+                    );
+                  }
+                })()}
               </div>
             ) : (
-              <div className="empty-state">No response body</div>
+              <div className="empty-state">
+                {selectedCall.responseBody === undefined ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="loading-spinner" style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid var(--border-color)',
+                      borderTop: '2px solid var(--accent-blue)',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}></div>
+                    Loading response body...
+                  </div>
+                ) : (
+                  "No response body"
+                )}
+              </div>
             )}
           </div>
         );
@@ -1065,9 +981,178 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
           </button>
         </div>
         <div className="tabs-actions">
-          <button onClick={copyAsCurl} className="action-button">
-            Copy as cURL
+          <div className="search-container">
+            {activeTab === "headers" && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search in headers..."
+                  value={headersSearchQuery}
+                  onChange={(e) => setHeadersSearchQuery(e.target.value)}
+                  className="unified-search-input"
+                />
+                {headersSearchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentHeadersSearchIndex - 1 + headersSearchResults.length) % headersSearchResults.length;
+                        setCurrentHeadersSearchIndex(newIndex);
+                        scrollToHeadersResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Previous result"
+                    >
+                      ↑
+                    </button>
+                    <span className="search-results-count">
+                      {currentHeadersSearchIndex + 1}/{headersSearchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentHeadersSearchIndex + 1) % headersSearchResults.length;
+                        setCurrentHeadersSearchIndex(newIndex);
+                        scrollToHeadersResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Next result"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {activeTab === "payload" && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search in payload..."
+                  value={payloadSearchQuery}
+                  onChange={(e) => setPayloadSearchQuery(e.target.value)}
+                  className="unified-search-input"
+                />
+                {payloadSearchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentPayloadSearchIndex - 1 + payloadSearchResults.length) % payloadSearchResults.length;
+                        setCurrentPayloadSearchIndex(newIndex);
+                        scrollToPayloadResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Previous result"
+                    >
+                      ↑
+                    </button>
+                    <span className="search-results-count">
+                      {currentPayloadSearchIndex + 1}/{payloadSearchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentPayloadSearchIndex + 1) % payloadSearchResults.length;
+                        setCurrentPayloadSearchIndex(newIndex);
+                        scrollToPayloadResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Next result"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {(activeTab === "response" || activeTab === "preview") && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search in response..."
+                  value={responseSearchQuery}
+                  onChange={(e) => setResponseSearchQuery(e.target.value)}
+                  className="unified-search-input"
+                />
+                {searchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+                        setCurrentSearchIndex(newIndex);
+                        scrollToResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Previous result"
+                    >
+                      ↑
+                    </button>
+                    <span className="search-results-count">
+                      {currentSearchIndex + 1}/{searchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentSearchIndex + 1) % searchResults.length;
+                        setCurrentSearchIndex(newIndex);
+                        scrollToResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Next result"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <button
+            onClick={handleCopy}
+            className="copy-content-button"
+            title={isCopied ? (copySuccess ? "Copied!" : "Failed to copy") : `Copy ${activeTab} content`}
+            style={{
+              background: isCopied
+                ? copySuccess
+                  ? "#4caf50"
+                  : "#e74c3c"
+                : undefined,
+              color: isCopied ? "white" : undefined,
+            }}
+          >
+            {isCopied ? (
+              copySuccess ? "✓ Copied!" : "✗ Failed"
+            ) : (
+              "Copy"
+            )}
           </button>
+          {(activeTab === "response" || activeTab === "payload") && (
+            <>
+              <button
+                onClick={handleExpandAll}
+                className="expand-collapse-button"
+                title="Expand all JSON nodes"
+              >
+                Expand All
+              </button>
+              <button
+                onClick={handleCollapseAll}
+                className="expand-collapse-button"
+                title="Collapse all JSON nodes"
+              >
+                Collapse All
+              </button>
+            </>
+          )}
+          {(!selectedCall.responseBody && selectedCall.status >= 200 && selectedCall.status < 300) && (
+            <button 
+              onClick={() => {
+                // Trigger a manual refresh of response content
+                logger.log("[NetworkDetailTabs] Manual refresh requested for:", selectedCall.url);
+                // This will be handled by the parent component or we can add a callback
+              }}
+              className="refresh-button"
+              title="Refresh response content"
+            >
+              ↻
+            </button>
+          )}
           <button onClick={onClose} className="close-button">
             ×
           </button>

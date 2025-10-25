@@ -3,7 +3,10 @@ import { NetworkCall } from "../types";
 import { detectUUIDs, copyUUIDToClipboard } from "../utils/uuid";
 import JsonViewer from "./JsonViewer";
 import CopyButton from "./CopyButton";
+import SimpleCopyButton from "./SimpleCopyButton";
 import { logger } from "../utils/logger";
+import { enhancedJsonSearch } from "../utils/jsonSearch";
+import { useNetworkCalls } from "../hooks/useNetworkCalls";
 
 interface SafeNetworkDetailTabsProps {
   selectedCall: NetworkCall;
@@ -24,6 +27,7 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
   onClose,
   searchQuery = "",
 }) => {
+  const { refreshResponseBody } = useNetworkCalls();
   const [activeTab, setActiveTab] = useState<TabType>("headers");
   const [responseSearchQuery, setResponseSearchQuery] = useState(searchQuery);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
@@ -38,11 +42,132 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
     Array<{ position: number; length: number; text: string }>
   >([]);
 
+
+  // JSON expand/collapse state
+  const [jsonExpandAll, setJsonExpandAll] = useState(false);
+  const [jsonCollapseAll, setJsonCollapseAll] = useState(false);
+
+  // Copy button feedback state
+  const [isCopied, setIsCopied] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<boolean | null>(null);
+  
+  // Loading state for response body
+  const [isLoadingResponseBody, setIsLoadingResponseBody] = useState(false);
+  const [responseBodyLoadTimeout, setResponseBodyLoadTimeout] = useState(false);
+
+  // Handle expand all JSON
+  const handleExpandAll = () => {
+    setJsonExpandAll(true);
+    setJsonCollapseAll(false);
+    // Reset after a short delay to allow the JsonViewer to process
+    setTimeout(() => setJsonExpandAll(false), 100);
+  };
+
+  // Handle collapse all JSON
+  const handleCollapseAll = () => {
+    setJsonCollapseAll(true);
+    setJsonExpandAll(false);
+    // Reset after a short delay to allow the JsonViewer to process
+    setTimeout(() => setJsonCollapseAll(false), 100);
+  };
+
+  // Get content to copy based on active tab with proper formatting
+  const getContentToCopy = () => {
+    switch (activeTab) {
+      case "headers":
+        return JSON.stringify(selectedCall.responseHeaders, null, 2);
+      case "payload":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.requestBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.requestBody || "";
+        }
+      case "response":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.responseBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.responseBody || "";
+        }
+      case "preview":
+        // Try to format as JSON if it's valid JSON, otherwise return as-is
+        try {
+          const parsed = JSON.parse(selectedCall.responseBody || "");
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          return selectedCall.responseBody || "";
+        }
+      case "initiator":
+        return (selectedCall as any).stackTrace || "";
+      case "timing":
+        return JSON.stringify({
+          duration: selectedCall.duration,
+          timestamp: selectedCall.timestamp,
+          startTime: (selectedCall as any).startTime,
+          endTime: (selectedCall as any).endTime
+        }, null, 2);
+      default:
+        return selectedCall.url;
+    }
+  };
+
+  // Handle copy button click - copy tab content
+  const handleCopy = async () => {
+    try {
+      const content = getContentToCopy();
+      const { copyToClipboard } = await import("../utils/clipboardUtils");
+      const success = await copyToClipboard(content);
+      
+      if (success) {
+        setIsCopied(true);
+        setCopySuccess(true);
+        setTimeout(() => {
+          setIsCopied(false);
+          setCopySuccess(null);
+        }, 2000); // Reset after 2 seconds
+        console.log("Content copied successfully");
+      } else {
+        setIsCopied(true);
+        setCopySuccess(false);
+        setTimeout(() => {
+          setIsCopied(false);
+          setCopySuccess(null);
+        }, 1000);
+        console.error("Failed to copy content");
+      }
+    } catch (error) {
+      setIsCopied(true);
+      setCopySuccess(false);
+      setTimeout(() => {
+        setIsCopied(false);
+        setCopySuccess(null);
+      }, 1000);
+      console.error("Failed to copy content:", error);
+    }
+  };
+
   // Update search queries when searchQuery prop changes
   React.useEffect(() => {
     setResponseSearchQuery(searchQuery);
     setPayloadSearchQuery(searchQuery);
   }, [searchQuery]);
+
+  // Set timeout for response body loading
+  React.useEffect(() => {
+    if (selectedCall.responseBody === undefined && selectedCall.status >= 200 && selectedCall.status < 300) {
+      setResponseBodyLoadTimeout(false);
+      const timeout = setTimeout(() => {
+        setResponseBodyLoadTimeout(true);
+      }, 5000); // 5 second timeout
+      
+      return () => clearTimeout(timeout);
+    } else {
+      setResponseBodyLoadTimeout(false);
+    }
+  }, [selectedCall.responseBody, selectedCall.status]);
 
   // Update search results when search query changes
   React.useEffect(() => {
@@ -162,24 +287,6 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
     }, 150);
   };
 
-  const navigateToNextPayloadResult = () => {
-    if (payloadSearchResults.length > 1) {
-      const newIndex =
-        (currentPayloadSearchIndex + 1) % payloadSearchResults.length;
-      setCurrentPayloadSearchIndex(newIndex);
-      scrollToPayloadResult(newIndex);
-    }
-  };
-
-  const navigateToPrevPayloadResult = () => {
-    if (payloadSearchResults.length > 1) {
-      const newIndex =
-        (currentPayloadSearchIndex - 1 + payloadSearchResults.length) %
-        payloadSearchResults.length;
-      setCurrentPayloadSearchIndex(newIndex);
-      scrollToPayloadResult(newIndex);
-    }
-  };
 
   // Safety check
   if (!selectedCall) {
@@ -682,124 +789,65 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
               {selectedCall.requestBody ? (
                 <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100%",
+                    flex: 1,
+                    padding: "8px",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "4px",
+                    backgroundColor: "var(--bg-tertiary)",
+                    margin: "0 12px 12px 12px",
                   }}
                 >
-                  <div
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 10,
-                      backgroundColor: "var(--bg-primary)",
-                      borderBottom: "1px solid var(--border-color)",
-                      padding: "12px",
-                      marginBottom: "0",
-                    }}
-                  >
-                    <h4 style={{ margin: "0 0 8px 0" }}>Request Payload</h4>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        placeholder="Search in payload..."
-                        value={payloadSearchQuery}
-                        onChange={(e) => setPayloadSearchQuery(e.target.value)}
-                        style={{
-                          padding: "6px 12px",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          width: "200px",
-                          backgroundColor: "var(--bg-input)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                      {payloadSearchResults.length > 0 && (
-                        <div className="search-navigation">
-                          <span className="search-result-count">
-                            {currentPayloadSearchIndex + 1} of{" "}
-                            {payloadSearchResults.length}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigateToPrevPayloadResult();
-                            }}
-                            disabled={payloadSearchResults.length <= 1}
-                            className="search-nav-button"
-                            title="Previous result"
-                            type="button"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigateToNextPayloadResult();
-                            }}
-                            disabled={payloadSearchResults.length <= 1}
-                            className="search-nav-button"
-                            title="Next result"
-                            type="button"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      )}
-                      <CopyButton
-                        data={selectedCall.requestBody}
-                        dataType="json"
-                        title="Copy payload data"
-                      />
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      flex: 1,
-                      overflow: "auto",
-                      padding: "8px",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "4px",
-                      backgroundColor: "var(--bg-tertiary)",
-                      margin: "0 12px 12px 12px",
-                    }}
-                  >
-                    {(() => {
-                      try {
-                        const parsed = JSON.parse(selectedCall.requestBody);
-                        return (
-                          <JsonViewer
-                            data={parsed}
-                            searchQuery={payloadSearchQuery}
-                            currentSearchIndex={currentPayloadSearchIndex}
-                            searchResults={payloadSearchResults}
-                            searchDataAttribute="data-payload-search-result-index"
-                          />
-                        );
-                      } catch {
-                        return (
-                          <pre>
-                            {renderPayloadWithHighlights(
-                              String(selectedCall.requestBody || ""),
-                              payloadSearchQuery,
-                            )}
-                          </pre>
-                        );
-                      }
-                    })()}
-                  </div>
+                  {(() => {
+                    try {
+                      const parsed = JSON.parse(selectedCall.requestBody);
+                      return (
+                        (() => {
+                          logger.log("[SafeNetworkDetailTabs] Rendering JsonViewer for payload");
+                          return (
+                            <JsonViewer
+                              data={parsed}
+                              searchQuery={payloadSearchQuery}
+                              currentSearchIndex={currentPayloadSearchIndex}
+                              searchResults={payloadSearchResults}
+                              searchDataAttribute="data-payload-search-result-index"
+                              onExpandAll={handleExpandAll}
+                              onCollapseAll={handleCollapseAll}
+                              jsonExpandAll={jsonExpandAll}
+                              jsonCollapseAll={jsonCollapseAll}
+                            />
+                          );
+                        })()
+                      );
+                    } catch {
+                      return (
+                        <pre>
+                          {renderPayloadWithHighlights(
+                            String(selectedCall.requestBody || ""),
+                            payloadSearchQuery,
+                          )}
+                        </pre>
+                      );
+                    }
+                  })()}
                 </div>
               ) : (
-                <div className="empty-state">No request payload</div>
+                <div className="empty-state">
+                  {selectedCall.requestBody === undefined ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="loading-spinner" style={{
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid var(--border-color)',
+                        borderTop: '2px solid var(--accent-blue)',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></div>
+                      Loading request payload...
+                    </div>
+                  ) : (
+                    "No request payload"
+                  )}
+                </div>
               )}
             </div>
           );
@@ -808,9 +856,8 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
           return (
             <div className="tab-content">
               {selectedCall.responseBody ? (
-                <div>
-                  <h4>Response Preview</h4>
-                  <div className="response-preview">
+              <div>
+                <div className="response-preview">
                     <pre>
                       {(() => {
                         try {
@@ -837,123 +884,70 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
               {selectedCall.responseBody ? (
                 <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100%",
+                    flex: 1,
+                    padding: "8px",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "4px",
+                    backgroundColor: "var(--bg-tertiary)",
+                    margin: "0 12px 12px 12px",
                   }}
                 >
-                  <div
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 10,
-                      backgroundColor: "var(--bg-primary)",
-                      borderBottom: "1px solid var(--border-color)",
-                      padding: "12px",
-                      marginBottom: "0",
-                    }}
-                  >
-                    <h4 style={{ margin: "0 0 8px 0" }}>Response</h4>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        placeholder="Search in response..."
-                        value={responseSearchQuery}
-                        onChange={(e) => setResponseSearchQuery(e.target.value)}
-                        style={{
-                          padding: "6px 12px",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          width: "200px",
-                          backgroundColor: "var(--bg-input)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                      {searchResults.length > 0 && (
-                        <div className="search-navigation">
-                          <span className="search-result-count">
-                            {currentSearchIndex + 1} of {searchResults.length}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigateToPrevResult();
-                            }}
-                            disabled={searchResults.length <= 1}
-                            className="search-nav-button"
-                            title="Previous result"
-                            type="button"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigateToNextResult();
-                            }}
-                            disabled={searchResults.length <= 1}
-                            className="search-nav-button"
-                            title="Next result"
-                            type="button"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      )}
-                      <CopyButton
-                        data={selectedCall.responseBody}
-                        dataType="json"
-                        title="Copy response data"
-                      />
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      flex: 1,
-                      overflow: "auto",
-                      padding: "8px",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "4px",
-                      backgroundColor: "var(--bg-tertiary)",
-                      margin: "0 12px 12px 12px",
-                    }}
-                  >
-                    {(() => {
-                      try {
-                        const parsed = JSON.parse(selectedCall.responseBody);
-                        return (
-                          <JsonViewer
-                            data={parsed}
-                            searchQuery={responseSearchQuery}
-                            currentSearchIndex={currentSearchIndex}
-                            searchResults={searchResults}
-                            searchDataAttribute="data-search-result-index"
-                          />
-                        );
-                      } catch {
-                        return (
-                          <pre>
-                            {renderTextWithHighlights(
-                              String(selectedCall.responseBody || ""),
-                              responseSearchQuery,
-                            )}
-                          </pre>
-                        );
-                      }
-                    })()}
-                  </div>
+                  {(() => {
+                    try {
+                      const parsed = JSON.parse(selectedCall.responseBody);
+                      return (
+                        (() => {
+                          logger.log("[SafeNetworkDetailTabs] Rendering JsonViewer for response");
+                          return (
+                            <JsonViewer
+                              data={parsed}
+                              searchQuery={responseSearchQuery}
+                              currentSearchIndex={currentSearchIndex}
+                              searchResults={searchResults}
+                              searchDataAttribute="data-search-result-index"
+                              onExpandAll={handleExpandAll}
+                              onCollapseAll={handleCollapseAll}
+                              jsonExpandAll={jsonExpandAll}
+                              jsonCollapseAll={jsonCollapseAll}
+                            />
+                          );
+                        })()
+                      );
+                    } catch {
+                      return (
+                        <pre>
+                          {renderTextWithHighlights(
+                            String(selectedCall.responseBody || ""),
+                            responseSearchQuery,
+                          )}
+                        </pre>
+                      );
+                    }
+                  })()}
                 </div>
               ) : (
-                <div className="empty-state">No response body</div>
+                <div className="empty-state">
+                  {selectedCall.responseBody === undefined ? (
+                    // Check if this is a case where response should be available but isn't
+                    (selectedCall.status >= 200 && selectedCall.status < 300 && !responseBodyLoadTimeout) ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="loading-spinner" style={{
+                          width: '16px',
+                          height: '16px',
+                          border: '2px solid var(--border-color)',
+                          borderTop: '2px solid var(--accent-blue)',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite'
+                        }}></div>
+                        Loading response body...
+                      </div>
+                    ) : (
+                      "Failed to load response data"
+                    )
+                  ) : (
+                    "No response body"
+                  )}
+                </div>
               )}
             </div>
           );
@@ -1113,6 +1107,162 @@ const SafeNetworkDetailTabs: React.FC<SafeNetworkDetailTabsProps> = ({
         </div>
 
         <div className="tabs-actions">
+          <div className="search-container">
+            {activeTab === "payload" && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search in payload..."
+                  value={payloadSearchQuery}
+                  onChange={(e) => setPayloadSearchQuery(e.target.value)}
+                  className="unified-search-input"
+                />
+                {payloadSearchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentPayloadSearchIndex - 1 + payloadSearchResults.length) % payloadSearchResults.length;
+                        setCurrentPayloadSearchIndex(newIndex);
+                        scrollToPayloadResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Previous result"
+                    >
+                      ↑
+                    </button>
+                    <span className="search-results-count">
+                      {currentPayloadSearchIndex + 1}/{payloadSearchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentPayloadSearchIndex + 1) % payloadSearchResults.length;
+                        setCurrentPayloadSearchIndex(newIndex);
+                        scrollToPayloadResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Next result"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {(activeTab === "response" || activeTab === "preview") && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Search in response..."
+                  value={responseSearchQuery}
+                  onChange={(e) => setResponseSearchQuery(e.target.value)}
+                  className="unified-search-input"
+                />
+                {searchResults.length > 0 && (
+                  <div className="search-navigation">
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+                        setCurrentSearchIndex(newIndex);
+                        scrollToResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Previous result"
+                    >
+                      ↑
+                    </button>
+                    <span className="search-results-count">
+                      {currentSearchIndex + 1}/{searchResults.length}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newIndex = (currentSearchIndex + 1) % searchResults.length;
+                        setCurrentSearchIndex(newIndex);
+                        scrollToResult(newIndex);
+                      }}
+                      className="search-nav-button"
+                      title="Next result"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <button
+            onClick={handleCopy}
+            className="copy-content-button"
+            title={isCopied ? (copySuccess ? "Copied!" : "Failed to copy") : `Copy ${activeTab} content`}
+            style={{
+              background: isCopied
+                ? copySuccess
+                  ? "#4caf50"
+                  : "#e74c3c"
+                : undefined,
+              color: isCopied ? "white" : undefined,
+            }}
+          >
+            {isCopied ? (
+              copySuccess ? "✓ Copied!" : "✗ Failed"
+            ) : (
+              "Copy"
+            )}
+          </button>
+          {(activeTab === "response" || activeTab === "payload") && (
+            <>
+              <button
+                onClick={handleExpandAll}
+                className="expand-collapse-button"
+                title="Expand all JSON nodes"
+              >
+                Expand All
+              </button>
+              <button
+                onClick={handleCollapseAll}
+                className="expand-collapse-button"
+                title="Collapse all JSON nodes"
+              >
+                Collapse All
+              </button>
+            </>
+          )}
+          {(!selectedCall.responseBody && selectedCall.status >= 200 && selectedCall.status < 300) && (
+            <button 
+              onClick={async () => {
+                if (isLoadingResponseBody) return; // Prevent multiple clicks
+                
+                setIsLoadingResponseBody(true);
+                logger.log("[SafeNetworkDetailTabs] Manual refresh requested for:", selectedCall.url);
+                
+                try {
+                  const success = await refreshResponseBody(selectedCall.id);
+                  if (success) {
+                    logger.log("[SafeNetworkDetailTabs] Manual refresh successful for:", selectedCall.url);
+                  } else {
+                    logger.warn("[SafeNetworkDetailTabs] Manual refresh failed for:", selectedCall.url);
+                  }
+                } finally {
+                  setIsLoadingResponseBody(false);
+                }
+              }}
+              className={`refresh-button ${isLoadingResponseBody ? 'loading' : ''}`}
+              title={isLoadingResponseBody ? "Loading response content..." : "Refresh response content"}
+              disabled={isLoadingResponseBody}
+            >
+              {isLoadingResponseBody ? (
+                <div className="loading-spinner" style={{
+                  width: '12px',
+                  height: '12px',
+                  border: '2px solid var(--border-color)',
+                  borderTop: '2px solid var(--accent-blue)',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+              ) : (
+                '↻'
+              )}
+            </button>
+          )}
           <button onClick={onClose} className="close-button">
             ×
           </button>

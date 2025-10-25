@@ -10,6 +10,10 @@ interface JsonViewerProps {
   searchResults?: Array<{ position: number; length: number; text: string }>;
   onSearchResultUpdate?: (element: HTMLElement | null) => void;
   searchDataAttribute?: string;
+  onExpandAll?: () => void;
+  onCollapseAll?: () => void;
+  jsonExpandAll?: boolean;
+  jsonCollapseAll?: boolean;
 }
 
 interface CollapsibleState {
@@ -23,6 +27,10 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   searchResults = [],
   onSearchResultUpdate,
   searchDataAttribute = "data-search-result-index",
+  onExpandAll,
+  onCollapseAll,
+  jsonExpandAll = false,
+  jsonCollapseAll = false,
 }) => {
   const [collapsed, setCollapsed] = useState<CollapsibleState>({});
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +42,60 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
       [path]: !prev[path],
     }));
   }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsed({});
+    if (onExpandAll) {
+      onExpandAll();
+    }
+  }, [onExpandAll]);
+
+  const collapseAll = useCallback(() => {
+    // Get all possible paths from the data
+    const getAllPaths = (obj: any, path: string = "root"): string[] => {
+      const paths: string[] = [];
+      
+      if (Array.isArray(obj)) {
+        const arrayPath = `${path}[]`;
+        paths.push(arrayPath);
+        obj.forEach((item, index) => {
+          paths.push(...getAllPaths(item, `${path}[${index}]`));
+        });
+      } else if (typeof obj === "object" && obj !== null) {
+        const objectPath = `${path}{}`;
+        paths.push(objectPath);
+        Object.keys(obj).forEach((key) => {
+          paths.push(...getAllPaths(obj[key], `${path}.${key}`));
+        });
+      }
+      
+      return paths;
+    };
+
+    const allPaths = getAllPaths(data);
+    const collapsedState: CollapsibleState = {};
+    allPaths.forEach(path => {
+      collapsedState[path] = true;
+    });
+    
+    setCollapsed(collapsedState);
+    if (onCollapseAll) {
+      onCollapseAll();
+    }
+  }, [data, onCollapseAll]);
+
+  // Handle external expand/collapse triggers
+  React.useEffect(() => {
+    if (jsonExpandAll) {
+      expandAll();
+    }
+  }, [jsonExpandAll, expandAll]);
+
+  React.useEffect(() => {
+    if (jsonCollapseAll) {
+      collapseAll();
+    }
+  }, [jsonCollapseAll, collapseAll]);
 
   const isCollapsed = useCallback(
     (path: string) => {
@@ -382,18 +444,28 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   );
 
   try {
+    // Debug logging
+    logger.log("[JsonViewer] Rendering JSON data");
+    logger.log("[JsonViewer] Data type:", typeof data, "Is object:", typeof data === 'object');
+    
     return (
-      <div
-        ref={containerRef}
-        style={{
-          fontFamily: "monospace",
-          fontSize: "14px",
-          lineHeight: "1.4",
-          color: "var(--text-primary)",
-          backgroundColor: "var(--bg-primary)",
-        }}
-      >
-        {renderValue(data, "root")}
+      <div className="json-viewer-container">
+        <div
+          ref={containerRef}
+          className="json-viewer"
+          style={{
+            fontFamily: "monospace",
+            fontSize: "14px",
+            lineHeight: "1.4",
+            color: "var(--text-primary)",
+            backgroundColor: "var(--bg-primary)",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          {renderValue(data, "root")}
+        </div>
       </div>
     );
   } catch (error) {
