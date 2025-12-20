@@ -1129,14 +1129,14 @@ const NetworkDetailTabs: React.FC<NetworkDetailTabsProps> = ({
                 className="expand-collapse-button"
                 title="Expand all JSON nodes"
               >
-                Expand All
+                Expand
               </button>
               <button
                 onClick={handleCollapseAll}
                 className="expand-collapse-button"
                 title="Collapse all JSON nodes"
               >
-                Collapse All
+                Collapse
               </button>
             </>
           )}
