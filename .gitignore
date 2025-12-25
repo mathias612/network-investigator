@@ -57,12 +57,10 @@ temp/
 # Build artifacts and temporary files
 convert-icons.html
 CREATE_ICONS.md
-CHROME_WEB_STORE_SUBMISSION.md
 
 # Chrome Web Store submission files
+chrome-store-submissions/
 network-investigator-icons.zip
-*.crx
-*.pem
 
 # Development and testing
 .eslintcache
@@ -70,8 +68,3 @@ network-investigator-icons.zip
 
 # TypeScript
 *.tsbuildinfo
-
-# Chrome extension development
-*.crx
-*.pem
-extension.zip
