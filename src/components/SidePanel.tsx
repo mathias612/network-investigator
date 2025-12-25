@@ -60,7 +60,6 @@ const SidePanelContent: React.FC = () => {
 
   const [selectedCall, setSelectedCall] = useState<NetworkCall | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [filterBarCollapsed, setFilterBarCollapsed] = useState(false);
   const [showHistoricalNotification, setShowHistoricalNotification] = useState(true);
   const [splitViewMode, setSplitViewMode] = useState<'full' | 'minimized' | 'details'>('full');
   const [showInactiveFilters, setShowInactiveFilters] = useState(false);
@@ -113,20 +112,10 @@ const SidePanelContent: React.FC = () => {
     <div className="side-panel">
       <header className="panel-header">
         <div className="header-left">
-          <h1 className="app-title">Network Investigator</h1>
-          
           {/* Filter Bar in Header */}
-          <div className={`header-filter-bar ${filterBarCollapsed ? "collapsed" : ""}`}>
-            <button
-              className="filter-toggle-btn"
-              onClick={() => setFilterBarCollapsed(!filterBarCollapsed)}
-              title={filterBarCollapsed ? "Show filters" : "Hide filters"}
-            >
-              🔍 {filterBarCollapsed ? "" : "Search & Filter"}
-            </button>
-            
-            {!filterBarCollapsed && (
-              <div className="header-filter-content">
+          <div className="header-filter-bar">
+            <div className="header-filter-content">
+              <div className="header-search-row">
                 <input
                   type="text"
                   placeholder="Search network calls..."
@@ -179,59 +168,59 @@ const SidePanelContent: React.FC = () => {
                     Response
                   </label>
                 </div>
-                <div className="header-filter-chips">
-                  {filters.filter(f => f.isActive).map((filter) => (
-                    <div
-                      key={filter.id}
-                      className="filter-chip active"
-                      onClick={() => updateFilter(filter.id, { isActive: !filter.isActive })}
-                    >
-                      {filter.name}
-                      <button
-                        className="filter-chip-remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateFilter(filter.id, { isActive: false });
-                        }}
-                        title="Deactivate filter"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {filters.filter(f => !f.isActive).length > 0 && (
-                    <div className="inactive-filters">
-                      <button
-                        className="show-inactive-btn"
-                        onClick={() => setShowInactiveFilters(!showInactiveFilters)}
-                        title="Show inactive filters"
-                      >
-                        + {filters.filter(f => !f.isActive).length} inactive
-                      </button>
-                      {showInactiveFilters && (
-                        <div className="inactive-filters-dropdown">
-                          {filters.filter(f => !f.isActive).map((filter) => (
-                            <div
-                              key={filter.id}
-                              className="inactive-filter-item"
-                              onClick={() => updateFilter(filter.id, { isActive: true })}
-                            >
-                              {filter.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <button
-                    className="add-filter-btn"
-                    onClick={() => setShowFilters(!showFilters)}
-                  >
-                    + Add Filter
-                  </button>
-                </div>
               </div>
-            )}
+              <div className="header-filter-chips">
+                {filters.filter(f => f.isActive).map((filter) => (
+                  <div
+                    key={filter.id}
+                    className="filter-chip active"
+                    onClick={() => updateFilter(filter.id, { isActive: !filter.isActive })}
+                  >
+                    {filter.name}
+                    <button
+                      className="filter-chip-remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateFilter(filter.id, { isActive: false });
+                      }}
+                      title="Deactivate filter"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {filters.filter(f => !f.isActive).length > 0 && (
+                  <div className="inactive-filters">
+                    <button
+                      className="show-inactive-btn"
+                      onClick={() => setShowInactiveFilters(!showInactiveFilters)}
+                      title="Show inactive filters"
+                    >
+                      + {filters.filter(f => !f.isActive).length} inactive
+                    </button>
+                    {showInactiveFilters && (
+                      <div className="inactive-filters-dropdown">
+                        {filters.filter(f => !f.isActive).map((filter) => (
+                          <div
+                            key={filter.id}
+                            className="inactive-filter-item"
+                            onClick={() => updateFilter(filter.id, { isActive: true })}
+                          >
+                            {filter.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button
+                  className="add-filter-btn"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  + Add Filter
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -251,7 +240,7 @@ const SidePanelContent: React.FC = () => {
           )}
           {/* Removed screenshot and refresh buttons to comply with Chrome Web Store requirements */}
           <button className="clear-calls-btn" onClick={clearNetworkCalls}>
-            Clear Calls
+            Clear
           </button>
         </div>
       </header>
