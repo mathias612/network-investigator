@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Network Investigator",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "description": "Advanced network traffic analysis tool for developers. Inspect HTTP requests with enhanced search and filtering capabilities.",
   "short_name": "NetInvestigator",
   "author": "Mathias",

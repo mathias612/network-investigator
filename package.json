@@ -1,6 +1,6 @@
 {
   "name": "network-investigator",
-  "version": "1.0.2",
+  "version": "1.0.6",
   "description": "A browser-based developer tool extension for enhanced network call inspection.",
   "main": "src/extension/index.ts",
   "scripts": {
